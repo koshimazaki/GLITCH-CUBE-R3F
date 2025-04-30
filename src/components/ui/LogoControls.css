@@ -1,78 +1,167 @@
 .logo-controls {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  background: rgba(0, 0, 0, 0.7);
-  padding: 15px;
-  border-radius: 8px;
+  top: 20px;
+  right: 20px;
+  background-color: rgba(21, 23, 26, 0.8);
   color: white;
+  padding: 16px;
+  border-radius: 8px;
+  z-index: 10;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
   width: 250px;
-  z-index: 100;
-  transition: opacity 0.3s ease;
-}
-
-.logo-controls:hover {
-  opacity: 1;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .logo-controls h3 {
   margin-top: 0;
-  margin-bottom: 10px;
-  font-size: 16px;
-}
-
-.control-group {
-  margin-bottom: 10px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.logo-controls label {
-  width: 80px;
-  display: inline-block;
-  font-size: 14px;
-}
-
-.logo-controls select,
-.logo-controls input[type="color"] {
-  flex: 1;
-  min-width: 100px;
-  padding: 4px;
-  background: #333;
-  color: white;
-  border: 1px solid #555;
-  border-radius: 4px;
-}
-
-.logo-controls input[type="range"] {
-  flex: 1;
-  min-width: 100px;
-}
-
-.logo-controls span {
-  width: 30px;
-  text-align: right;
-  margin-left: 5px;
-  font-size: 12px;
-}
-
-/* Button for loading patterns */
-.load-pattern-btn {
-  width: 100%;
-  padding: 8px 10px;
-  background-color: #03d7fc;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background-color 0.2s;
+  margin-bottom: 15px;
+  font-size: 1.2em;
+  color: #03d7fc;
   text-align: center;
 }
 
+.control-group {
+  margin-bottom: 15px;
+}
+
+.control-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 14px;
+}
+
+.control-group select, 
+.control-group input {
+  width: 100%;
+  padding: 6px;
+  border-radius: 4px;
+  border: 1px solid #444;
+  background-color: #222;
+  color: white;
+}
+
+.control-group input[type="range"] {
+  margin-right: 10px;
+  width: 75%;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.control-group span {
+  display: inline-block;
+  width: 20%;
+  text-align: right;
+  font-size: 14px;
+  vertical-align: middle;
+}
+
+.load-pattern-btn {
+  width: 100%;
+  padding: 8px 0;
+  background-color: #fc0398;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
 .load-pattern-btn:hover {
-  background-color: #0d0d0d;
+  background-color: #d60382;
+}
+
+/* Camera controls styles */
+.camera-controls-group {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid #444;
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.camera-controls-title {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 1.1em;
+  color: #03d7fc;
+  display: flex;
+  align-items: center;
+}
+
+.camera-controls-title::before {
+  content: "🎥";
+  margin-right: 6px;
+}
+
+.camera-position-controls {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.camera-btn {
+  padding: 6px 0;
+  border: none;
+  border-radius: 4px;
+  background-color: #333;
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.camera-btn:hover {
+  background-color: #444;
+}
+
+.camera-btn:active {
+  background-color: #555;
+  transform: translateY(1px);
+}
+
+/* Special styling for isometric view button */
+.camera-position-controls .camera-btn:last-child {
+  grid-column: span 3;
+  background-color: #03d7fc;
+  color: white;
+}
+
+.camera-position-controls .camera-btn:last-child:hover {
+  background-color: #02b8d9;
+}
+
+.camera-checkbox-controls {
+  margin: 10px 0;
+}
+
+.camera-checkbox-controls label {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.camera-checkbox-controls input[type="checkbox"] {
+  width: auto;
+  margin-right: 8px;
+}
+
+.camera-instructions {
+  font-size: 11px;
+  line-height: 1.4;
+  color: #ccc;
+  padding: 8px;
+  background-color: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  border-left: 3px solid #fc0398;
+  margin-top: 10px;
 }
 
 @media (max-width: 768px) {

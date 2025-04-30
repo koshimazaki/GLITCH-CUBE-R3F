@@ -2,6 +2,23 @@ import { create } from 'zustand'
 import { shallow } from 'zustand/shallow'
 
 /**
+ * Coordinate transformation helpers
+ */
+// Transform JSON coordinates to our internal system (if needed)
+const transformCoordinates = (x, y, z) => {
+  // Swap Y and Z axes, as Y represents height in most 3D software
+  // In our system, Y is up/down on screen (front to back)
+  // This makes (0,0,0) the bottom front corner
+  return [x, z, y]
+}
+
+// Transform internal coordinates to JSON (inverse of above)
+const transformToJSON = (x, y, z) => {
+  // Convert from our system to JSON export format
+  return [x, z, y]
+}
+
+/**
  * Pattern functions for different letters
  */
 // G pattern - creates a "G" shape in the cube
@@ -176,7 +193,9 @@ export const useLogoCubeStore = create((set, get) => ({
         if (typeof cube.x === 'number' && 
             typeof cube.y === 'number' && 
             typeof cube.z === 'number') {
-          cubeMap.set(`${cube.x},${cube.y},${cube.z}`, 1)
+          // Apply coordinate transformation here
+          const [newX, newY, newZ] = transformCoordinates(cube.x, cube.y, cube.z)
+          cubeMap.set(`${newX},${newY},${newZ}`, 1)
         }
       })
       set({ visibleCubes: cubeMap, currentPattern: 'custom' })
@@ -191,6 +210,18 @@ export const useLogoCubeStore = create((set, get) => ({
       })
       set({ visibleCubes: cubeMap, currentPattern: 'custom' })
     }
+  },
+  
+  // Export the current pattern to JSON array format
+  exportPattern: () => {
+    const { visibleCubes } = get()
+    
+    // Convert Map to array of objects with coordinate transformation
+    return Array.from(visibleCubes.keys()).map(key => {
+      const [x, y, z] = key.split(',').map(Number)
+      const [jsonX, jsonY, jsonZ] = transformToJSON(x, y, z)
+      return { x: jsonX, y: jsonY, z: jsonZ }
+    })
   },
   
   // Set the current pattern by name

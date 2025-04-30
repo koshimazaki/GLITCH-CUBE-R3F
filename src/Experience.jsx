@@ -1,5 +1,4 @@
-import { useRef, useEffect } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useRef, useEffect, useState } from 'react'
 import { OrbitControls, PerspectiveCamera, Environment, ContactShadows } from '@react-three/drei'
 import { LogoCubeWithStore } from './components/three/LogoCube'
 import useLogoCubeStore from './store/logoCubeStore'
@@ -7,9 +6,26 @@ import useLogoCubeStore from './store/logoCubeStore'
 // Colors palette 
 // https://coolors.co/fc0398-e25259-e66255-ea7250-f19146-ffcf33-42d5ca-03d7fc-0f4757-15171a
 
+// Make OrbitControls available globally for access from LogoControls
+window.orbitControlsRef = null
+window.setAutoRotate = null
+
 export default function Experience() {
   const cameraRef = useRef()
+  const orbitControlsRef = useRef()
   const storeInitializedRef = useRef(false)
+  const [autoRotate, setAutoRotate] = useState(false)
+  
+  // Make the controls ref available to other components
+  useEffect(() => {
+    window.orbitControlsRef = orbitControlsRef
+    window.setAutoRotate = setAutoRotate
+    
+    return () => {
+      window.orbitControlsRef = null
+      window.setAutoRotate = null
+    }
+  }, [setAutoRotate])
   
   // Initialize the store on component mount
   useEffect(() => {
@@ -57,20 +73,6 @@ export default function Experience() {
     }
   }, [])
   
-  // Subtle camera movement for added dynamism
-  useFrame((state) => {
-    if (cameraRef.current) {
-      const t = state.clock.getElapsedTime() * 0.1
-      
-      // Add subtle circular motion to camera
-      cameraRef.current.position.x = Math.sin(t) * 0.5 + 5
-      cameraRef.current.position.z = Math.cos(t) * 0.5 + 5
-      
-      // Keep camera focused on origin
-      cameraRef.current.lookAt(0, 0, 0)
-    }
-  })
-  
   return (
     <>
       {/* dark grey background */}
@@ -84,10 +86,21 @@ export default function Experience() {
         fov={45}
       />
       <OrbitControls 
-        enableDamping 
+        ref={orbitControlsRef}
+        makeDefault
+        enableDamping={true}
         dampingFactor={0.05}
+        rotateSpeed={0.8}
+        enablePan={true}
+        panSpeed={1.0}
         minDistance={3} 
-        maxDistance={20}
+        maxDistance={30}
+        maxPolarAngle={Math.PI * 0.9} // Prevent going below the grid
+        screenSpacePanning={true}
+        enableZoom={true}
+        zoomSpeed={1.2}
+        autoRotate={autoRotate}
+        autoRotateSpeed={0.5}
       />
       
       {/* Lighting */}

@@ -143,7 +143,7 @@ const InteractiveCubeGrid = ({ size = 5, cubeSize = 0.8, gap = 0.2 }) => {
 }
 
 // Scene component to hold all Three.js elements
-const DesignerScene = ({ wireframe, showGrid, showCoordinates, cubeColor, textColor }) => {
+const DesignerScene = ({ wireframe, showGrid, showCoordinates, cubeColor, textColor, orbitControlsRef, autoRotate }) => {
   return (
     <>
       <color attach="background" args={['#f0f0f0']} />
@@ -167,23 +167,74 @@ const DesignerScene = ({ wireframe, showGrid, showCoordinates, cubeColor, textCo
         <GridCoordinatesHelper />
       )}
       
-      <OrbitControls makeDefault />
+      <OrbitControls 
+        ref={orbitControlsRef}
+        makeDefault 
+        enableDamping={true}
+        dampingFactor={0.05}
+        rotateSpeed={0.8}
+        enablePan={true}
+        panSpeed={1.0}
+        minDistance={5}
+        maxDistance={30}
+        maxPolarAngle={Math.PI * 0.9} // Prevent going below the grid
+        screenSpacePanning={true}
+        enableZoom={true}
+        zoomSpeed={1.2}
+        autoRotate={autoRotate}
+        autoRotateSpeed={0.5}
+      />
     </>
   )
 }
 
 // Component for a color picker input with label
 const ColorPicker = ({ label, value, onChange }) => {
+  // Implement local state with debounce for better performance
+  const [localValue, setLocalValue] = useState(value);
+  const [debounceTimeout, setDebounceTimeout] = useState(null);
+  
+  // Update local value when prop value changes
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+  
+  const handleChange = (e) => {
+    const newValue = e.target.value;
+    setLocalValue(newValue);
+    
+    // Clear previous timeout
+    if (debounceTimeout) {
+      clearTimeout(debounceTimeout);
+    }
+    
+    // Set new timeout
+    const timeout = setTimeout(() => {
+      onChange(newValue);
+    }, 100);
+    
+    setDebounceTimeout(timeout);
+  };
+  
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimeout) {
+        clearTimeout(debounceTimeout);
+      }
+    };
+  }, [debounceTimeout]);
+  
   return (
     <div className="color-picker">
       <label>{label}:</label>
       <div className="color-picker-input">
         <input 
           type="color" 
-          value={value} 
-          onChange={(e) => onChange(e.target.value)} 
+          value={localValue} 
+          onChange={handleChange} 
         />
-        <span className="color-value">{value}</span>
+        <span className="color-value">{localValue}</span>
       </div>
     </div>
   )
@@ -204,16 +255,35 @@ const DesignerExperience = () => {
   const [cubeColor, setCubeColor] = useState(logoCubeStore.visual.color)
   const [textColor, setTextColor] = useState('#ffffff')
   
+  // Camera controls state
+  const [cameraControls, setCameraControls] = useState({
+    autoRotate: false
+  })
+  
+  // Ref for OrbitControls
+  const orbitControlsRef = useRef(null)
+  
   // File input ref for loading JSON
   const fileInputRef = useRef(null)
+  
+  // Ref to track initialization
+  const isInitializedRef = useRef(false)
 
   // Initialize the store when entering designer mode
   useEffect(() => {
-    // When entering designer mode, set animation to none to prevent movement
-    logoCubeStore.setAnimationType('none')
-    
-    // Set default pattern name based on current pattern
-    setPatternName(logoCubeStore.currentPattern || '')
+    // Only run this once per component mount
+    if (!isInitializedRef.current) {
+      // When entering designer mode, set animation to none to prevent movement
+      if (logoCubeStore.animation.type !== 'none') {
+        logoCubeStore.setAnimationType('none')
+      }
+      
+      // Set default pattern name based on current pattern
+      setPatternName(logoCubeStore.currentPattern || '')
+      
+      // Mark as initialized
+      isInitializedRef.current = true
+    }
     
     // Listen for mode changes to save state before exiting
     const handleModeChange = (event) => {
@@ -228,7 +298,7 @@ const DesignerExperience = () => {
     return () => {
       window.removeEventListener('modechange', handleModeChange)
     }
-  }, [logoCubeStore])
+  }, [])
 
   const handleDebugToggle = (option) => {
     setDebugOptions(prev => ({
@@ -248,6 +318,55 @@ const DesignerExperience = () => {
   const handleCubeColorChange = (color) => {
     setCubeColor(color)
     logoCubeStore.setColor(color)
+  }
+  
+  // Camera control functions
+  const toggleAutoRotate = () => {
+    setCameraControls(prev => ({ ...prev, autoRotate: !prev.autoRotate }))
+  }
+  
+  const setCameraPosition = (position) => {
+    if (orbitControlsRef.current) {
+      const controls = orbitControlsRef.current
+      
+      // Reset any ongoing animations/rotations
+      controls.autoRotate = false
+      setCameraControls(prev => ({ ...prev, autoRotate: false }))
+      
+      // Get the target point (usually at the center)
+      const targetPosition = controls.target.clone()
+      
+      // Calculate the new camera position based on the preset view
+      switch(position) {
+        case 'front':
+          controls.object.position.set(0, 0, 15)
+          break
+        case 'back':
+          controls.object.position.set(0, 0, -15)
+          break
+        case 'left':
+          controls.object.position.set(-15, 0, 0)
+          break
+        case 'right':
+          controls.object.position.set(15, 0, 0)
+          break
+        case 'top':
+          controls.object.position.set(0, 15, 0)
+          break
+        case 'bottom':
+          controls.object.position.set(0, -15, 0)
+          break
+        case 'isometric':
+          controls.object.position.set(10, 10, 10)
+          break
+        default:
+          return
+      }
+      
+      // Look at the target
+      controls.object.lookAt(targetPosition)
+      controls.update()
+    }
   }
   
   // Handle loading a JSON pattern
@@ -409,6 +528,35 @@ const DesignerExperience = () => {
           Hover over a position to see a highlight.
           Use keyboard to navigate through the grid.
         </p>
+        
+        <h3>Camera Controls</h3>
+        <div className="camera-controls">
+          <div className="camera-position-controls">
+            <button onClick={() => setCameraPosition('front')} className="camera-btn">Front</button>
+            <button onClick={() => setCameraPosition('back')} className="camera-btn">Back</button>
+            <button onClick={() => setCameraPosition('left')} className="camera-btn">Left</button>
+            <button onClick={() => setCameraPosition('right')} className="camera-btn">Right</button>
+            <button onClick={() => setCameraPosition('top')} className="camera-btn">Top</button>
+            <button onClick={() => setCameraPosition('bottom')} className="camera-btn">Bottom</button>
+            <button onClick={() => setCameraPosition('isometric')} className="camera-btn">Isometric</button>
+          </div>
+          <div className="camera-rotation-controls">
+            <label>
+              <input
+                type="checkbox"
+                checked={cameraControls.autoRotate}
+                onChange={toggleAutoRotate}
+              />
+              Auto-Rotate
+            </label>
+          </div>
+          <p className="camera-instructions">
+            <strong>Interact with 3D view:</strong><br/>
+            • <strong>Left-click + drag</strong>: Rotate view<br/>
+            • <strong>Right-click + drag</strong>: Pan view<br/>
+            • <strong>Scroll wheel</strong>: Zoom in/out
+          </p>
+        </div>
       </div>
 
       <Canvas camera={{ position: [10, 10, 10], fov: 50 }}>
@@ -418,6 +566,8 @@ const DesignerExperience = () => {
           showCoordinates={debugOptions.showCoordinates}
           cubeColor={cubeColor}
           textColor={textColor}
+          orbitControlsRef={orbitControlsRef}
+          autoRotate={cameraControls.autoRotate}
         />
       </Canvas>
     </div>
