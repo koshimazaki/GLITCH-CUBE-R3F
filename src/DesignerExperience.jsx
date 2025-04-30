@@ -263,8 +263,9 @@ const DesignerExperience = () => {
   // Ref for OrbitControls
   const orbitControlsRef = useRef(null)
   
-  // File input ref for loading JSON
+  // File input refs
   const fileInputRef = useRef(null)
+  const configFileInputRef = useRef(null)
   
   // Ref to track initialization
   const isInitializedRef = useRef(false)
@@ -436,6 +437,61 @@ const DesignerExperience = () => {
     URL.revokeObjectURL(url)
   }
 
+  // Handle exporting the full configuration
+  const handleExportConfig = () => {
+    const config = logoCubeStore.exportFullConfig()
+    const json = JSON.stringify(config, null, 2)
+    
+    // Create a downloadable file
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `gns-logo-config-${patternName || 'custom'}-${new Date().toISOString().slice(0, 10)}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  // Handle importing full configuration
+  const handleImportConfig = () => {
+    if (configFileInputRef.current) {
+      configFileInputRef.current.click()
+    }
+  }
+
+  const handleConfigFileChange = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      try {
+        const config = JSON.parse(event.target.result)
+        const success = logoCubeStore.importFullConfig(config)
+        
+        if (success) {
+          // Update UI state to match the imported config
+          setPatternName(config.meta?.patternName || 'custom')
+          setCubeColor(config.visual?.color || '#fc0398')
+          // Show success message
+          alert('Configuration imported successfully!')
+        } else {
+          alert('Failed to import configuration. Invalid format.')
+        }
+      } catch (error) {
+        console.error("Error importing configuration:", error)
+        alert("Failed to import: Invalid JSON format")
+      }
+    }
+    
+    reader.readAsText(file)
+    
+    // Reset the file input so the same file can be loaded again
+    e.target.value = null
+  }
+
   return (
     <div className="designer-container">
       <div className="debug-controls">
@@ -509,6 +565,32 @@ const DesignerExperience = () => {
             type="file" 
             ref={fileInputRef}
             onChange={handleFileChange}
+            accept=".json"
+            style={{ display: 'none' }}
+          />
+        </div>
+        
+        <h3>Full Configuration</h3>
+        <div className="pattern-actions">
+          <button 
+            onClick={handleExportConfig}
+            className="action-btn export-btn"
+          >
+            Export Config
+          </button>
+          
+          <button 
+            onClick={handleImportConfig}
+            className="action-btn import-btn"
+          >
+            Import Config
+          </button>
+          
+          {/* Hidden file input for loading configuration */}
+          <input 
+            type="file" 
+            ref={configFileInputRef}
+            onChange={handleConfigFileChange}
             accept=".json"
             style={{ display: 'none' }}
           />

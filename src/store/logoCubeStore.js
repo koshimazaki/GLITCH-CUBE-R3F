@@ -171,6 +171,7 @@ export const useLogoCubeStore = create((set, get) => ({
     type: 'wave',
     speed: 1.0,
     interactionFactor: 0.3,
+    delay: 0.1, // Delay between cubes for staggered animations
   },
   
   // Visual properties
@@ -178,6 +179,45 @@ export const useLogoCubeStore = create((set, get) => ({
     color: '#fc0398',
     cubeSize: 0.8,
     gap: 0.2,
+  },
+  
+  // Position properties for moving the cube with WASD
+  position: {
+    x: 0,
+    y: 0,
+    z: 0,
+  },
+  
+  // Control options
+  enableKeyboardControls: true,
+  
+  // Toggle keyboard controls
+  setKeyboardControls: (enabled) => {
+    set({ enableKeyboardControls: enabled })
+  },
+  
+  // Methods to adjust position
+  moveX: (amount) => {
+    const { position } = get()
+    set({ position: { ...position, x: position.x + amount } })
+  },
+  
+  moveY: (amount) => {
+    const { position } = get()
+    set({ position: { ...position, y: position.y + amount } })
+  },
+  
+  moveZ: (amount) => {
+    const { position } = get()
+    set({ position: { ...position, z: position.z + amount } })
+  },
+  
+  setPosition: (x, y, z) => {
+    set({ position: { x, y, z } })
+  },
+  
+  resetPosition: () => {
+    set({ position: { x: 0, y: 0, z: 0 } })
   },
   
   // Load a custom pattern from a Map or JSON
@@ -222,6 +262,76 @@ export const useLogoCubeStore = create((set, get) => ({
       const [jsonX, jsonY, jsonZ] = transformToJSON(x, y, z)
       return { x: jsonX, y: jsonY, z: jsonZ }
     })
+  },
+  
+  // Export all settings to a complete configuration object
+  exportFullConfig: () => {
+    const state = get()
+    
+    return {
+      // Include all the visual settings
+      visual: { ...state.visual },
+      
+      // Include animation settings
+      animation: { ...state.animation },
+      
+      // Include meta information
+      meta: {
+        patternName: state.currentPattern,
+        exportDate: new Date().toISOString(),
+        version: "1.0"
+      },
+      
+      // Include the pattern of cubes using the pattern export
+      pattern: state.exportPattern()
+    }
+  },
+  
+  // Import a full configuration
+  importFullConfig: (config) => {
+    // Validate the config
+    if (!config || !config.pattern || !config.visual || !config.animation) {
+      console.error("Invalid configuration format")
+      return false
+    }
+    
+    try {
+      // Update visual settings
+      get().setColor(config.visual.color || '#fc0398')
+      get().setCubeSize(config.visual.cubeSize || 0.8)
+      get().setGap(config.visual.gap || 0.2)
+      
+      // Update animation settings
+      get().setAnimationType(config.animation.type || 'wave')
+      get().setAnimationSpeed(config.animation.speed || 1.0)
+      get().setInteractionFactor(config.animation.interactionFactor || 0.3)
+      
+      // Update the pattern - convert to Map
+      const visibleCubes = new Map()
+      
+      if (Array.isArray(config.pattern)) {
+        config.pattern.forEach(cube => {
+          if (typeof cube.x === 'number' && 
+              typeof cube.y === 'number' && 
+              typeof cube.z === 'number') {
+            // Apply coordinate transformation
+            const [newX, newY, newZ] = transformCoordinates(cube.x, cube.y, cube.z)
+            visibleCubes.set(`${newX},${newY},${newZ}`, 1)
+          }
+        })
+      }
+      
+      // Update the store with the new pattern
+      set({ 
+        visibleCubes,
+        currentPattern: config.meta?.patternName || 'custom'
+      })
+      
+      return true
+    } catch (error) {
+      console.error("Error importing configuration:", error)
+      return false
+    }
   },
   
   // Set the current pattern by name
@@ -350,6 +460,18 @@ export const useLogoCubeStore = create((set, get) => ({
     set({ animation })
   },
   
+  // Set animation delay (for staggered animations)
+  setAnimationDelay: (delay) => {
+    const animation = { ...get().animation, delay }
+    set({ animation })
+  },
+  
+  // Set animation completion callback
+  setAnimationCallback: (callback) => {
+    const animation = { ...get().animation, callback }
+    set({ animation })
+  },
+  
   // Set color
   setColor: (color) => {
     const visual = { ...get().visual, color }
@@ -366,6 +488,22 @@ export const useLogoCubeStore = create((set, get) => ({
   setGap: (gap) => {
     const visual = { ...get().visual, gap }
     set({ visual })
+  },
+  
+  initializeGNSLogo: async () => {
+    try {
+      const logoData = await import('../data/gnsLogo.json');
+      const newVisibleCubes = new Map();
+      logoData.default.forEach(coord => {
+        const key = `${coord.x},${coord.y},${coord.z}`;
+        newVisibleCubes.set(key, 1);
+      });
+      set({ visibleCubes: newVisibleCubes });
+    } catch (error) {
+      console.error('Failed to load GNS logo data:', error);
+      // Fallback to a default pattern if loading fails
+      get().initializeHollowCube();
+    }
   },
 }))
 

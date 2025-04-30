@@ -17,6 +17,13 @@ export function LogoCube({
   animationType = 'wave',
   interactionFactor = 0.3,
   useStoreConfig = false,
+  materialSettings = {
+    roughness: 0.3,
+    metalness: 0.5, 
+    envMapIntensity: 1,
+    clearcoat: 0.5,
+    clearcoatRoughness: 0.2
+  },
   ...props
 }) {
   // Reference to the entire instances group
@@ -37,6 +44,8 @@ export function LogoCube({
   const storeAnimationSpeed = useLogoCubeStore(state => state.animation.speed)
   const storeInteractionFactor = useLogoCubeStore(state => state.animation.interactionFactor)
   const storeVisibleCubes = useLogoCubeStore(state => state.visibleCubes)
+  const storeAnimationDelay = useLogoCubeStore(state => state.animation.delay)
+  const storePosition = useLogoCubeStore(state => state.position)
   
   // Memoize final values to prevent unnecessary rerenders
   const finalValues = useMemo(() => ({
@@ -47,12 +56,13 @@ export function LogoCube({
     animationType: useStoreConfig ? storeAnimationType : animationType,
     animationSpeed: useStoreConfig ? storeAnimationSpeed : animationSpeed,
     interactionFactor: useStoreConfig ? storeInteractionFactor : interactionFactor,
-    offset: ((useStoreConfig ? storeSize : size) - 1) / 2
+    offset: ((useStoreConfig ? storeSize : size) - 1) / 2,
+    delay: useStoreConfig ? (storeAnimationDelay || 0.1) : 0.1
   }), [
     useStoreConfig, 
     size, cubeSize, gap, color, animationType, animationSpeed, interactionFactor,
     storeSize, storeVisualCubeSize, storeVisualGap, storeVisualColor, 
-    storeAnimationType, storeAnimationSpeed, storeInteractionFactor
+    storeAnimationType, storeAnimationSpeed, storeInteractionFactor, storeAnimationDelay
   ])
   
   // Define which cubes are visible in the 5x5x5 grid
@@ -188,6 +198,137 @@ export function LogoCube({
           break
         }
           
+        case 'falling': {
+          // Falling cubes animation (great for loading screens)
+          const { delay } = finalValues
+          // Each cube starts falling at a different time based on index
+          const startDelay = i * delay
+          const fallStart = Math.max(0, time - startDelay)
+          
+          // If this cube's time to fall has come
+          if (fallStart > 0) {
+            // Calculate fall position with gravity
+            const gravity = 9.8
+            const fallDistance = 20 // Starting height above final position
+            const fallTime = fallStart
+            
+            // Standard falling equation with gravity
+            let fallY = fallDistance - 0.5 * gravity * fallTime * fallTime
+            
+            // Once it reaches its final position, add a bounce effect
+            if (fallY <= 0) {
+              const timeSinceLanding = fallTime - Math.sqrt(2 * fallDistance / gravity)
+              
+              if (timeSinceLanding > 0) {
+                // Calculate bounce height based on time since landing
+                const bounceHeight = 2 * Math.exp(-timeSinceLanding * 2) // Diminishing bounce
+                fallY = bounceHeight * Math.abs(Math.sin(timeSinceLanding * 5))
+              } else {
+                fallY = 0
+              }
+            }
+            
+            animY = fallY
+          } else {
+            // Before falling, keep the cube way above its final position
+            animY = 20
+          }
+          break
+        }
+          
+        case 'disconnect': {
+          // Disconnection effect where cubes pull apart and then reconnect
+          // Use a periodic function to create a disconnection cycle
+          const cycleLength = 4.0 // Seconds for full disconnect-reconnect
+          const cycleProgress = (time % cycleLength) / cycleLength
+          
+          // Phase 1: Pull apart (0-0.4)
+          // Phase 2: Hold disconnected (0.4-0.6)
+          // Phase 3: Reconnect (0.6-1.0)
+          
+          let disconnectionFactor = 0
+          
+          if (cycleProgress < 0.4) {
+            // Phase 1: Pulling apart (ease-in)
+            disconnectionFactor = Math.pow(cycleProgress / 0.4, 2)
+          } else if (cycleProgress < 0.6) {
+            // Phase 2: Hold disconnected
+            disconnectionFactor = 1
+          } else {
+            // Phase 3: Reconnect (ease-out)
+            disconnectionFactor = Math.pow(1 - (cycleProgress - 0.6) / 0.4, 2)
+          }
+          
+          // Direction of disconnection based on position relative to center
+          // Each cube moves away from center
+          const direction = [
+            position[0] === 0 ? 0 : Math.sign(position[0]),
+            position[1] === 0 ? 0 : Math.sign(position[1]),
+            position[2] === 0 ? 0 : Math.sign(position[2]),
+          ]
+          
+          // Apply disconnection effect with random jitter per cube
+          const jitter = Math.sin(i * 1000) * 0.3
+          animX = direction[0] * disconnectionFactor * (1.5 + jitter)
+          animY = direction[1] * disconnectionFactor * (1.5 + jitter)
+          animZ = direction[2] * disconnectionFactor * (1.5 + jitter)
+          
+          // Add slight rotation during disconnection
+          tempObject.rotation.set(
+            disconnectionFactor * Math.sin(i) * Math.PI * 0.2,
+            disconnectionFactor * Math.cos(i) * Math.PI * 0.2,
+            disconnectionFactor * Math.sin(i * 2) * Math.PI * 0.2
+          )
+          break
+        }
+          
+        case 'assembly': {
+          // Assembly/disassembly animation - cubes come together to form the shape
+          const { delay } = finalValues
+          const assemblyDuration = 2.0 // seconds
+          const fullCycleTime = 5.0 // total cycle time including pause
+          
+          // Calculate the current phase in the cycle (0 to 1)
+          const cycleTime = time % fullCycleTime
+          const cyclePhase = cycleTime / fullCycleTime
+          
+          // Determine if we're in assembly or disassembly phase
+          const isAssembling = cyclePhase < 0.5
+          
+          // Calculate progress through current phase
+          const phaseProgress = isAssembling ? 
+            cyclePhase * 2 : // 0->0.5 maps to 0->1 
+            (1 - (cyclePhase - 0.5) * 2) // 0.5->1 maps to 1->0
+          
+          // Delay start based on cube index for staggered effect
+          const startDelay = i * delay
+          const adjustedProgress = Math.max(0, Math.min(1, (phaseProgress * assemblyDuration - startDelay) / (assemblyDuration - startDelay * cubePositions.length / 20)))
+          
+          // Calculate the starting position (far from center)
+          const startPositionFactor = 10 // how far cubes start from center
+          const randomDir = [
+            Math.sin(i * 123.456),
+            Math.sin(i * 234.567),
+            Math.sin(i * 345.678)
+          ]
+          
+          // Interpolate between scattered position and final position
+          const interpolationFactor = Math.pow(adjustedProgress, 2) // Ease-in curve
+          
+          animX = randomDir[0] * startPositionFactor * (1 - interpolationFactor)
+          animY = randomDir[1] * startPositionFactor * (1 - interpolationFactor)
+          animZ = randomDir[2] * startPositionFactor * (1 - interpolationFactor)
+          
+          // Add rotation during assembly
+          const rotationAmount = (1 - interpolationFactor) * Math.PI * 2
+          tempObject.rotation.set(
+            randomDir[0] * rotationAmount,
+            randomDir[1] * rotationAmount,
+            randomDir[2] * rotationAmount
+          )
+          break
+        }
+          
         default:
           break
       }
@@ -225,10 +366,26 @@ export function LogoCube({
   useFrame(animateCubes)
   
   return (
-    <group {...props}>
+    <group 
+      {...props} 
+      position={[
+        (useStoreConfig ? storePosition.x : 0) + (props.position?.[0] || 0),
+        (useStoreConfig ? storePosition.y : 0) + (props.position?.[1] || 0),
+        (useStoreConfig ? storePosition.z : 0) + (props.position?.[2] || 0)
+      ]}
+    >
       <Instances limit={125} ref={groupRef} castShadow receiveShadow>
         <boxGeometry args={[finalValues.cubeSize, finalValues.cubeSize, finalValues.cubeSize]} />
-        <meshStandardMaterial color={finalValues.color} />
+        <meshPhysicalMaterial 
+          color={finalValues.color} 
+          roughness={materialSettings.roughness}
+          metalness={materialSettings.metalness}
+          envMapIntensity={materialSettings.envMapIntensity}
+          clearcoat={materialSettings.clearcoat}
+          clearcoatRoughness={materialSettings.clearcoatRoughness}
+          castShadow
+          receiveShadow
+        />
         {cubePositions.map((cube) => (
           <Instance key={cube.id} />
         ))}
@@ -248,20 +405,58 @@ export function LogoCubeWithControls(props) {
     animationSpeed: { value: 1, min: 0, max: 5, step: 0.1 },
     animationType: { 
       value: 'wave', 
-      options: ['none', 'wave', 'breathe', 'twist', 'scatter']
+      options: ['none', 'wave', 'breathe', 'twist', 'scatter', 'falling', 'disconnect', 'assembly']
     },
     interactionFactor: { value: 0.3, min: 0, max: 2, step: 0.1 },
     useStore: false,
+    materialSettings: useControls('Material Settings', {
+      roughness: { value: 0.3, min: 0, max: 1, step: 0.01 },
+      metalness: { value: 0.5, min: 0, max: 1, step: 0.01 },
+      envMapIntensity: { value: 1, min: 0, max: 5, step: 0.1 },
+      clearcoat: { value: 0.5, min: 0, max: 1, step: 0.01 },
+      clearcoatRoughness: { value: 0.2, min: 0, max: 1, step: 0.01 },
+    }),
   })
   
-  return <LogoCube {...props} {...controls} useStoreConfig={controls.useStore} />
+  // Update the LogoCube component to use the material settings
+  const logoProps = {
+    ...props,
+    ...controls,
+    materialSettings: controls.materialSettings,
+    useStoreConfig: controls.useStore
+  }
+  
+  return <LogoCube {...logoProps} />
 }
 
 /**
  * LogoCubeWithStore - Component that directly uses the store configuration
  */
-export function LogoCubeWithStore(props) {
-  return <LogoCube {...props} useStoreConfig={true} />
+export function LogoCubeWithStore({ gridSize, fadeDistance, ...props }) {
+  // Get values from store
+  const size = useLogoCubeStore(state => state.size)
+  const cubeSize = useLogoCubeStore(state => state.visual.cubeSize)
+  const gap = useLogoCubeStore(state => state.visual.gap)
+  const color = useLogoCubeStore(state => state.visual.color)
+  const animationType = useLogoCubeStore(state => state.animation.type)
+  const animationSpeed = useLogoCubeStore(state => state.animation.speed)
+  const interactionFactor = useLogoCubeStore(state => state.animation.interactionFactor)
+  
+  return (
+    <LogoCube 
+      size={size}
+      cubeSize={cubeSize}
+      gap={gap}
+      color={color}
+      animationType={animationType}
+      animationSpeed={animationSpeed}
+      interactionFactor={interactionFactor}
+      useStoreConfig={true}
+      gridSize={gridSize}
+      fadeDistance={fadeDistance}
+      {...props} 
+    />
+  )
 }
 
 export default LogoCube 

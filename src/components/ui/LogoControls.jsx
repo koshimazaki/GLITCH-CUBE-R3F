@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { patternMap } from '../three/LogoPatterns'
+// import { patternMap } from '../three/LogoPatterns'
 import useLogoCubeStore from '../../store/logoCubeStore'
 import './LogoControls.css'
 
@@ -109,6 +109,7 @@ function CameraControls({ orbitControlsRef, autoRotate, setAutoRotate }) {
 export function LogoControls() {
   const [currentPattern, setCurrentPattern] = useState('hollow')
   const fileInputRef = useRef(null)
+  const configFileInputRef = useRef(null)
   
   // Get orbit controls info from global state
   const [orbitControlsRef, setOrbitControlsRef] = useState(null)
@@ -168,35 +169,37 @@ export function LogoControls() {
   const visual = useLogoCubeStore(state => state.visual)
   
   // Get actions from store
-  const initializeHollowCube = useLogoCubeStore(state => state.initializeHollowCube)
-  const initializeCustomPattern = useLogoCubeStore(state => state.initializeCustomPattern)
+  // Commented out unused functions to fix linter errors
+  // const initializeHollowCube = useCallback(() => {
+  //   useLogoCubeStore.getState().initializeHollowCube()
+  // }, [])
+  //
+  // const initializeCustomPattern = useCallback((patternFunc) => {
+  //   useLogoCubeStore.getState().initializeCustomPattern(patternFunc)
+  // }, [])
   const loadPattern = useLogoCubeStore(state => state.loadPattern)
   const setAnimationType = useLogoCubeStore(state => state.setAnimationType)
   const setAnimationSpeed = useLogoCubeStore(state => state.setAnimationSpeed)
   const setInteractionFactor = useLogoCubeStore(state => state.setInteractionFactor)
+  const setAnimationDelay = useLogoCubeStore(state => state.setAnimationDelay)
   const setColor = useLogoCubeStore(state => state.setColor)
   const setCubeSize = useLogoCubeStore(state => state.setCubeSize)
   const setGap = useLogoCubeStore(state => state.setGap)
   
+  // Get additional actions from store
+  const exportFullConfig = useLogoCubeStore(state => state.exportFullConfig)
+  const importFullConfig = useLogoCubeStore(state => state.importFullConfig)
+  
   // Handle pattern change - use useCallback to memoize handlers
   const handlePatternChange = useCallback((e) => {
-    const newPattern = e.target.value
-    setCurrentPattern(newPattern)
-    
-    if (newPattern === 'hollow') {
-      initializeHollowCube()
-    } else if (newPattern === 'custom') {
-      // Trigger file input when custom is selected
-      if (fileInputRef.current) {
-        fileInputRef.current.click()
-      }
+    const pattern = e.target.value
+    if (pattern === 'gns') {
+      useLogoCubeStore.getState().initializeGNSLogo()
     } else {
-      const patternFunc = patternMap[newPattern]
-      if (patternFunc) {
-        initializeCustomPattern(patternFunc)
-      }
+      useLogoCubeStore.getState().setCurrentPattern(pattern)
     }
-  }, [initializeHollowCube, initializeCustomPattern])
+    setCurrentPattern(pattern)
+  }, [])
   
   // Handle loading a custom JSON pattern
   const handleFileChange = useCallback((e) => {
@@ -253,6 +256,11 @@ export function LogoControls() {
     setInteractionFactor(parseFloat(e.target.value))
   }, [setInteractionFactor])
   
+  // Handle animation delay change for staggered animations
+  const handleAnimationDelayChange = useCallback((e) => {
+    setAnimationDelay(parseFloat(e.target.value))
+  }, [setAnimationDelay])
+  
   // Handle color change - use debounce to improve performance
   const [colorValue, setColorValue] = useState(visual.color);
   const [colorDebounceTimeout, setColorDebounceTimeout] = useState(null);
@@ -300,6 +308,60 @@ export function LogoControls() {
     }
   }, [])
   
+  // Handle exporting the full configuration
+  const handleExportConfig = useCallback(() => {
+    const config = exportFullConfig()
+    const json = JSON.stringify(config, null, 2)
+    
+    // Create a downloadable file
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `gns-logo-config-${new Date().toISOString().slice(0, 10)}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }, [exportFullConfig])
+  
+  // Handle importing full configuration
+  const handleImportConfig = useCallback(() => {
+    if (configFileInputRef.current) {
+      configFileInputRef.current.click()
+    }
+  }, [])
+  
+  const handleConfigFileChange = useCallback((e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      try {
+        const config = JSON.parse(event.target.result)
+        const success = importFullConfig(config)
+        
+        if (success) {
+          // Update UI state to match the imported config
+          setCurrentPattern(config.meta?.patternName || 'custom')
+          // Show success message
+          alert('Configuration imported successfully!')
+        } else {
+          alert('Failed to import configuration. Invalid format.')
+        }
+      } catch (error) {
+        console.error("Error importing configuration:", error)
+        alert("Failed to import: Invalid JSON format")
+      }
+    }
+    
+    reader.readAsText(file)
+    
+    // Reset the file input so the same file can be loaded again
+    e.target.value = null
+  }, [importFullConfig])
+  
   return (
     <div className="logo-controls">
       <h3>Logo Controls</h3>
@@ -316,7 +378,7 @@ export function LogoControls() {
           <option value="g">G Letter</option>
           <option value="n">N Letter</option>
           <option value="s">S Letter</option>
-          <option value="gns">GNS (3D)</option>
+          <option value="gns">GNS Logo</option>
           <option value="cross">Cross</option>
           <option value="stairs">Stairs</option>
           <option value="random">Random</option>
@@ -353,6 +415,9 @@ export function LogoControls() {
           <option value="breathe">Breathe</option>
           <option value="twist">Twist</option>
           <option value="scatter">Scatter</option>
+          <option value="falling">Falling (Loading)</option>
+          <option value="disconnect">Disconnect</option>
+          <option value="assembly">Assembly</option>
         </select>
       </div>
       
@@ -382,6 +447,20 @@ export function LogoControls() {
           onChange={handleInteractionFactorChange} 
         />
         <span>{animation.interactionFactor.toFixed(1)}</span>
+      </div>
+      
+      <div className="control-group">
+        <label htmlFor="animationDelay">Delay:</label>
+        <input 
+          type="range" 
+          id="animationDelay" 
+          min="0" 
+          max="5" 
+          step="0.1" 
+          value={animation.delay} 
+          onChange={handleAnimationDelayChange} 
+        />
+        <span>{animation.delay.toFixed(1)}</span>
       </div>
       
       <div className="control-group">
@@ -428,6 +507,33 @@ export function LogoControls() {
         autoRotate={autoRotate}
         setAutoRotate={setAutoRotate}
       />
+      
+      {/* Export and import configuration buttons */}
+      <div className="control-group">
+        <button 
+          className="export-config-btn" 
+          onClick={handleExportConfig}
+        >
+          Export Configuration
+        </button>
+        <button 
+          className="import-config-btn" 
+          onClick={handleImportConfig}
+        >
+          Import Configuration
+        </button>
+      </div>
+      
+      {/* Import configuration file input */}
+      <div className="control-group">
+        <input 
+          type="file"
+          ref={configFileInputRef}
+          style={{ display: 'none' }}
+          accept=".json"
+          onChange={handleConfigFileChange}
+        />
+      </div>
     </div>
   )
 }

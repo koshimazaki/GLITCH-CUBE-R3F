@@ -116,6 +116,24 @@
   background-color: #0d0d0d;
 }
 
+.export-btn {
+  background-color: #ffcc00;
+  color: #333;
+}
+
+.export-btn:hover {
+  background-color: #ffaa00;
+}
+
+.import-btn {
+  background-color: #42d5ca;
+  color: white;
+}
+
+.import-btn:hover {
+  background-color: #32c5ba;
+}
+
 .keyboard-controls {
   background-color: rgba(0, 0, 0, 0.05);
   border-radius: 4px;

@@ -75,10 +75,15 @@ canvas {
   border-right: none;
 }
 
+.mode-switch button:nth-last-child(2) {
+  border-right: none;
+}
+
 .mode-switch button:last-child {
   border-top-right-radius: 8px;
   border-bottom-right-radius: 8px;
   border-left: none;
+  background-color: #03d7fc;
 }
 
 .mode-switch button.active {
@@ -89,6 +94,10 @@ canvas {
 
 .mode-switch button:hover:not(.active) {
   background-color: rgba(50, 50, 50, 0.8);
+}
+
+.mode-switch button.controls-toggle:hover {
+  background-color: #0bb8d3;
 }
 
 /* Controls styling */

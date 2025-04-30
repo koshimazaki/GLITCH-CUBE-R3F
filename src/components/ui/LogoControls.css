@@ -72,6 +72,37 @@
   background-color: #d60382;
 }
 
+/* Export and import configuration buttons */
+.export-config-btn,
+.import-config-btn {
+  width: 100%;
+  padding: 8px 0;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  margin-bottom: 8px;
+}
+
+.export-config-btn {
+  background-color: #ffcc00;
+  color: #333;
+}
+
+.export-config-btn:hover {
+  background-color: #ffdd33;
+}
+
+.import-config-btn {
+  background-color: #03d7fc;
+  color: white;
+}
+
+.import-config-btn:hover {
+  background-color: #02b8d9;
+}
+
 /* Camera controls styles */
 .camera-controls-group {
   margin-top: 20px;
@@ -156,9 +187,9 @@
 .camera-instructions {
   font-size: 11px;
   line-height: 1.4;
-  color: #ccc;
+  color: #e1e5eb;
   padding: 8px;
-  background-color: rgba(0, 0, 0, 0.3);
+  background-color: rgba(0, 0, 0, 0.6);
   border-radius: 4px;
   border-left: 3px solid #fc0398;
   margin-top: 10px;

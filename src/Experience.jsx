@@ -1,7 +1,8 @@
-import { useRef, useEffect, useState } from 'react'
-import { OrbitControls, PerspectiveCamera, Environment, ContactShadows } from '@react-three/drei'
+import { useRef, useEffect, useState, memo } from 'react'
+import { OrbitControls, PerspectiveCamera, Environment, ContactShadows, Grid, GizmoHelper, GizmoViewport, AccumulativeShadows, RandomizedLight } from '@react-three/drei'
 import { LogoCubeWithStore } from './components/three/LogoCube'
 import useLogoCubeStore from './store/logoCubeStore'
+import { useControls, button } from 'leva'
 
 // Colors palette 
 // https://coolors.co/fc0398-e25259-e66255-ea7250-f19146-ffcf33-42d5ca-03d7fc-0f4757-15171a
@@ -10,11 +11,202 @@ import useLogoCubeStore from './store/logoCubeStore'
 window.orbitControlsRef = null
 window.setAutoRotate = null
 
+// Shadows component using AccumulativeShadows for better quality
+const Shadows = memo(({ shadowColor }) => (
+  <AccumulativeShadows 
+    temporal 
+    frames={100} 
+    color={shadowColor} 
+    colorBlend={0.5} 
+    alphaTest={0.9} 
+    scale={20}
+    position={[0, -2.5, 0]}
+  >
+    <RandomizedLight amount={8} radius={4} position={[5, 5, -10]} />
+  </AccumulativeShadows>
+))
+
 export default function Experience() {
   const cameraRef = useRef()
   const orbitControlsRef = useRef()
   const storeInitializedRef = useRef(false)
   const [autoRotate, setAutoRotate] = useState(false)
+  
+  // Grid controls using Leva
+  const { gridSize, shadowColor, ...gridConfig } = useControls('Scene Settings', {
+    gridSize: [10, 10],
+    cellSize: { value: 1, min: 0, max: 10, step: 0.1 },
+    cellThickness: { value: 1, min: 0, max: 5, step: 0.1 },
+    cellColor: '#6f6f6f',
+    sectionSize: { value: 5, min: 0, max: 10, step: 0.1 },
+    sectionThickness: { value: 1.5, min: 0, max: 5, step: 0.1 },
+    sectionColor: '#0370fc',
+    fadeDistance: { value: 70, min: 0, max: 100, step: 1 },
+    fadeStrength: { value: 1, min: 0, max: 1, step: 0.1 },
+    followCamera: true,
+    infiniteGrid: true,
+    shadowColor: '#8b3568',
+    useBetterShadows: true,
+  })
+  
+  // Movement speed and control settings
+  useControls('WASD Controls', {
+    moveSpeed: {
+      value: 0.1, 
+      min: 0.01, 
+      max: 1, 
+      step: 0.01,
+      onChange: (value) => {
+        // Store moveSpeed in a ref to avoid recreating the effect
+        moveSpeedRef.current = value
+      }
+    },
+    enableKeyboardControls: {
+      value: true,
+      onChange: (value) => {
+        useLogoCubeStore.getState().setKeyboardControls(value)
+        
+        // Show/hide instructions based on controls being enabled
+        if (value) {
+          showInstructions()
+        } else {
+          hideInstructions()
+        }
+      }
+    },
+    resetPosition: button(() => useLogoCubeStore.getState().resetPosition()),
+  })
+  
+  // Ref to store movement speed for the keyboard movement effect
+  const moveSpeedRef = useRef(0.1)
+  
+  // Create instructions element
+  useEffect(() => {
+    // Create instruction element if it doesn't exist
+    if (!document.getElementById('wasd-instructions')) {
+      const instructions = document.createElement('div')
+      instructions.id = 'wasd-instructions'
+      instructions.style.position = 'absolute'
+      instructions.style.top = '100px'
+      instructions.style.left = '50%'
+      instructions.style.transform = 'translateX(-50%)'
+      instructions.style.backgroundColor = 'rgba(0, 0, 0, 0.7)'
+      instructions.style.color = 'white'
+      instructions.style.padding = '8px 16px'
+      instructions.style.borderRadius = '8px'
+      instructions.style.fontFamily = 'sans-serif'
+      instructions.style.fontSize = '14px'
+      instructions.style.zIndex = '1000'
+      instructions.style.pointerEvents = 'none'
+      instructions.style.opacity = '0'
+      instructions.style.transition = 'opacity 0.3s ease'
+      instructions.textContent = 'Move with WASD — Height with QE'
+      
+      document.body.appendChild(instructions)
+      
+      // Show instructions initially if controls are enabled
+      if (useLogoCubeStore.getState().enableKeyboardControls) {
+        showInstructions()
+      }
+    }
+    
+    return () => {
+      // Clean up on unmount
+      const instructions = document.getElementById('wasd-instructions')
+      if (instructions) {
+        document.body.removeChild(instructions)
+      }
+    }
+  }, [])
+  
+  // Function to show instructions
+  const showInstructions = () => {
+    const instructions = document.getElementById('wasd-instructions')
+    if (instructions) {
+      instructions.style.opacity = '1'
+      
+      // Hide after 5 seconds
+      setTimeout(() => {
+        if (instructions) {
+          instructions.style.opacity = '0'
+        }
+      }, 5000)
+    }
+  }
+  
+  // Function to hide instructions
+  const hideInstructions = () => {
+    const instructions = document.getElementById('wasd-instructions')
+    if (instructions) {
+      instructions.style.opacity = '0'
+    }
+  }
+  
+  // Keyboard movement controls (WASD)
+  useEffect(() => {
+    const store = useLogoCubeStore.getState()
+    
+    // Keys being pressed
+    const keysPressed = new Set()
+    
+    // Handle key down event
+    const handleKeyDown = (e) => {
+      keysPressed.add(e.key.toLowerCase())
+      
+      // Move continuously while keys are pressed
+      if (keysPressed.size > 0) {
+        requestAnimationFrame(moveWithKeys)
+      }
+    }
+    
+    // Handle key up event
+    const handleKeyUp = (e) => {
+      keysPressed.delete(e.key.toLowerCase())
+    }
+    
+    // Move cube based on keys pressed
+    const moveWithKeys = () => {
+      // Get current enableKeyboardControls value
+      const currentlyEnabled = useLogoCubeStore.getState().enableKeyboardControls
+      if (!currentlyEnabled) return
+      
+      // Move based on which keys are pressed
+      if (keysPressed.has('w')) {
+        store.moveZ(-moveSpeedRef.current)
+      }
+      if (keysPressed.has('s')) {
+        store.moveZ(moveSpeedRef.current)
+      }
+      if (keysPressed.has('a')) {
+        store.moveX(-moveSpeedRef.current)
+      }
+      if (keysPressed.has('d')) {
+        store.moveX(moveSpeedRef.current)
+      }
+      if (keysPressed.has('q')) {
+        store.moveY(moveSpeedRef.current)
+      }
+      if (keysPressed.has('e')) {
+        store.moveY(-moveSpeedRef.current)
+      }
+      
+      // Continue moving if keys are still pressed
+      if (keysPressed.size > 0) {
+        requestAnimationFrame(moveWithKeys)
+      }
+    }
+    
+    // Add event listeners
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    
+    // Clean up
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+      keysPressed.clear()
+    }
+  }, [])
   
   // Make the controls ref available to other components
   useEffect(() => {
@@ -34,12 +226,8 @@ export default function Experience() {
     
     const store = useLogoCubeStore.getState()
     
-    // We only want to initialize with hollow cube pattern if there is no existing pattern
-    // This way, we can preserve patterns created in designer mode
-    if (store.visibleCubes.size === 0) {
-      // Initialize with hollow cube pattern by default
-      store.initializeHollowCube()
-    }
+    // Initialize with GNS logo pattern by default
+    store.initializeGNSLogo();
     
     // Set default animation values if coming from designer mode
     if (store.animation.type === 'none') {
@@ -82,7 +270,7 @@ export default function Experience() {
       <PerspectiveCamera 
         ref={cameraRef}
         makeDefault 
-        position={[5, 5, 5]} 
+        position={[gridSize[0] * 0.5, gridSize[1] * 0.5, gridSize[0] * 0.5]} 
         fov={45}
       />
       <OrbitControls 
@@ -112,18 +300,32 @@ export default function Experience() {
       <Environment preset="city" />
       
       {/* Logo Cube */}
-      <LogoCubeWithStore position={[0, 0, 0]} />
+      <LogoCubeWithStore position={[0, 0, 0]} gridSize={gridSize} fadeDistance={gridConfig.fadeDistance} />
       
-      {/* Shadow under the cube */}
-      <ContactShadows 
-        opacity={0.5}
-        scale={10}
-        blur={1}
-        far={10}
-        resolution={256}
-        color="#000000"
-        position={[0, -2.5, 0]}
-      />
+      {/* Grid */}
+      <Grid position={[0, -2.51, 0]} 
+      fadeDistance={70}
+      args={gridSize} {...gridConfig} />
+      
+      {/* Shadows - conditionally show based on the control */}
+      {gridConfig.useBetterShadows ? (
+        <Shadows shadowColor={shadowColor} />
+      ) : (
+        <ContactShadows 
+          opacity={0.5}
+          scale={10}
+          blur={1}
+          far={10}
+          resolution={256}
+          color="#000000"
+          position={[0, -2.5, 0]}
+        />
+      )}
+      
+      {/* Gizmo Helper */}
+      <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
+        <GizmoViewport axisColors={['#fc0398', '#42d5ca', '#ffcf33']} labelColor="white" />
+      </GizmoHelper>
     </>
   )
 }
