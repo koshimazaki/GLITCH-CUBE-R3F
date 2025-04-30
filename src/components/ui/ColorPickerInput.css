@@ -1,0 +1,82 @@
+.color-picker-container {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+  gap: 8px;
+}
+
+.color-picker-container label {
+  min-width: 80px;
+  margin-right: 10px;
+}
+
+.color-picker-input {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.color-input-wrapper {
+  position: relative;
+  width: 36px;
+  height: 36px;
+}
+
+.color-picker-input input[type="color"] {
+  width: 0;
+  height: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  position: absolute;
+  pointer-events: none;
+}
+
+.color-swatch {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  transition: transform 0.1s;
+}
+
+.color-swatch:hover {
+  transform: scale(1.05);
+}
+
+.color-swatch:active {
+  transform: scale(0.95);
+}
+
+.color-value {
+  font-size: 14px;
+  font-family: monospace;
+  color: #333;
+  padding: 2px 6px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.color-value:hover {
+  background-color: #e5e5e5;
+}
+
+/* Dark mode styles for LogoControls.jsx */
+.logo-controls .color-value {
+  color: #e1e5eb;
+  background-color: rgba(0, 0, 0, 0.3);
+  border-color: #444;
+}
+
+.logo-controls .color-value:hover {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.logo-controls .color-swatch {
+  border-color: #444;
+} 

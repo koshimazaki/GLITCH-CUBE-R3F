@@ -90,7 +90,8 @@ export default function App() {
       />
       
       <div className="info">
-        <h1>GNS Logo Cube</h1>
+      <h2> Glitch NFT Studio</h2>
+      <h3> CubeLogo Maker</h3>
         <p>Interactive 3D logo with customizable patterns and animations</p>
       </div>
       

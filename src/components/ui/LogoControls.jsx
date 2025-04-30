@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 // import { patternMap } from '../three/LogoPatterns'
 import useLogoCubeStore from '../../store/logoCubeStore'
+import ColorPickerInput from './ColorPickerInput'
 import './LogoControls.css'
 
 /**
@@ -261,36 +262,6 @@ export function LogoControls() {
     setAnimationDelay(parseFloat(e.target.value))
   }, [setAnimationDelay])
   
-  // Handle color change - use debounce to improve performance
-  const [colorValue, setColorValue] = useState(visual.color);
-  const [colorDebounceTimeout, setColorDebounceTimeout] = useState(null);
-
-  const handleColorChange = useCallback((e) => {
-    const newColor = e.target.value;
-    setColorValue(newColor);
-    
-    // Clear previous timeout
-    if (colorDebounceTimeout) {
-      clearTimeout(colorDebounceTimeout);
-    }
-    
-    // Set new timeout to update store color
-    const timeout = setTimeout(() => {
-      setColor(newColor);
-    }, 100);
-    
-    setColorDebounceTimeout(timeout);
-  }, [setColor, colorDebounceTimeout]);
-
-  // Cleanup color debounce timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (colorDebounceTimeout) {
-        clearTimeout(colorDebounceTimeout);
-      }
-    };
-  }, [colorDebounceTimeout]);
-  
   // Handle cube size change
   const handleCubeSizeChange = useCallback((e) => {
     setCubeSize(parseFloat(e.target.value))
@@ -464,12 +435,10 @@ export function LogoControls() {
       </div>
       
       <div className="control-group">
-        <label htmlFor="color">Color:</label>
-        <input 
-          type="color" 
-          id="color" 
-          value={colorValue} 
-          onChange={handleColorChange} 
+        <ColorPickerInput 
+          label="Color"
+          value={visual.color}
+          onChange={setColor}
         />
       </div>
       

@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import * as THREE from 'three'
 import { GridCoordinatesHelper, TexturedLogoCube, CubeHighlighter } from './components/three/CoordinateLabels'
 import useLogoCubeStore from './store/logoCubeStore'
+import ColorPickerInput from './components/ui/ColorPickerInput'
 import './DesignerExperience.css'
 
 // Interactive Cube component for clicking
@@ -146,7 +147,7 @@ const InteractiveCubeGrid = ({ size = 5, cubeSize = 0.8, gap = 0.2 }) => {
 const DesignerScene = ({ wireframe, showGrid, showCoordinates, cubeColor, textColor, orbitControlsRef, autoRotate }) => {
   return (
     <>
-      <color attach="background" args={['#f0f0f0']} />
+      <color attach="background" args={['lightgray']} />
       <ambientLight intensity={0.5} />
       <directionalLight position={[10, 10, 5]} intensity={1.5} />
       
@@ -188,58 +189,6 @@ const DesignerScene = ({ wireframe, showGrid, showCoordinates, cubeColor, textCo
   )
 }
 
-// Component for a color picker input with label
-const ColorPicker = ({ label, value, onChange }) => {
-  // Implement local state with debounce for better performance
-  const [localValue, setLocalValue] = useState(value);
-  const [debounceTimeout, setDebounceTimeout] = useState(null);
-  
-  // Update local value when prop value changes
-  useEffect(() => {
-    setLocalValue(value);
-  }, [value]);
-  
-  const handleChange = (e) => {
-    const newValue = e.target.value;
-    setLocalValue(newValue);
-    
-    // Clear previous timeout
-    if (debounceTimeout) {
-      clearTimeout(debounceTimeout);
-    }
-    
-    // Set new timeout
-    const timeout = setTimeout(() => {
-      onChange(newValue);
-    }, 100);
-    
-    setDebounceTimeout(timeout);
-  };
-  
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (debounceTimeout) {
-        clearTimeout(debounceTimeout);
-      }
-    };
-  }, [debounceTimeout]);
-  
-  return (
-    <div className="color-picker">
-      <label>{label}:</label>
-      <div className="color-picker-input">
-        <input 
-          type="color" 
-          value={localValue} 
-          onChange={handleChange} 
-        />
-        <span className="color-value">{localValue}</span>
-      </div>
-    </div>
-  )
-}
-
 const DesignerExperience = () => {
   const [debugOptions, setDebugOptions] = useState({
     showGrid: true,
@@ -253,7 +202,7 @@ const DesignerExperience = () => {
   
   // Color state
   const [cubeColor, setCubeColor] = useState(logoCubeStore.visual.color)
-  const [textColor, setTextColor] = useState('#ffffff')
+  const [textColor, setTextColor] = useState('#000000')
   
   // Camera controls state
   const [cameraControls, setCameraControls] = useState({
@@ -522,13 +471,13 @@ const DesignerExperience = () => {
         </label>
         
         <h3>Appearance</h3>
-        <ColorPicker 
+        <ColorPickerInput 
           label="Cube Color" 
           value={cubeColor} 
           onChange={handleCubeColorChange} 
         />
         
-        <ColorPicker 
+        <ColorPickerInput 
           label="Text Color" 
           value={textColor} 
           onChange={setTextColor} 
@@ -600,7 +549,7 @@ const DesignerExperience = () => {
         <div className="keyboard-controls">
           <p><strong>W/S</strong> - Move Up/Down (Y axis)</p>
           <p><strong>A/D</strong> - Move Left/Right (X axis)</p>
-          <p><strong>Q/E</strong> - Move Back/Forward (Z axis)</p>
+          <p><strong>Q/E</strong> - Move Back/Forward (Z)</p>
           <p><strong>Space</strong> - Toggle cube at cursor</p>
         </div>
         

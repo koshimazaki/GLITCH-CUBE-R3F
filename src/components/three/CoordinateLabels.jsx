@@ -153,7 +153,7 @@ export function TexturedLogoCube({
   cubeSize = 0.8,
   gap = 0.2,
   color = '#fc0398',
-  textColor = '#ffffff',
+  textColor = '#000000',
   wireframe = false,
   ...props
 }) {
