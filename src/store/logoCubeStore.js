@@ -158,9 +158,8 @@ export const useLogoCubeStore = create((set, get) => ({
   size: 5,
   
   // Custom pattern - defines which cubes should be visible
-  // For a 5x5x5 grid, this would typically have 125 entries (0 or 1)
-  // 0 = hidden, 1 = visible
-  // We store it as a Map for O(1) lookups with string keys like "x,y,z"
+  // We store it as a Map with keys like "x,y,z" and values as arrays of face objects
+  // Each face object can specify which face has an accent color: { face: 'front', color: 'b' }
   visibleCubes: new Map(),
   
   // Current pattern name
@@ -176,7 +175,8 @@ export const useLogoCubeStore = create((set, get) => ({
   
   // Visual properties
   visual: {
-    color: '#fc0398',
+    color: '#fc0398', // Main color (a)
+    accentColor: '#333333', // Accent color (b)
     cubeSize: 0.8,
     gap: 0.2,
   },
@@ -224,7 +224,12 @@ export const useLogoCubeStore = create((set, get) => ({
   loadPattern: (visibleCubes) => {
     // If it's already a Map, use it directly
     if (visibleCubes instanceof Map) {
-      set({ visibleCubes, currentPattern: 'custom' })
+      // Ensure all values are arrays
+      const normalizedCubes = new Map()
+      for (const [key, value] of visibleCubes.entries()) {
+        normalizedCubes.set(key, Array.isArray(value) ? value : [])
+      }
+      set({ visibleCubes: normalizedCubes, currentPattern: 'custom' })
     } 
     // Otherwise, try to convert it to a Map
     else if (Array.isArray(visibleCubes)) {
@@ -235,7 +240,7 @@ export const useLogoCubeStore = create((set, get) => ({
             typeof cube.z === 'number') {
           // Apply coordinate transformation here
           const [newX, newY, newZ] = transformCoordinates(cube.x, cube.y, cube.z)
-          cubeMap.set(`${newX},${newY},${newZ}`, 1)
+          cubeMap.set(`${newX},${newY},${newZ}`, cube.sides || [])
         }
       })
       set({ visibleCubes: cubeMap, currentPattern: 'custom' })
@@ -245,7 +250,7 @@ export const useLogoCubeStore = create((set, get) => ({
       const cubeMap = new Map()
       Object.entries(visibleCubes).forEach(([key, value]) => {
         if (value) {
-          cubeMap.set(key, 1)
+          cubeMap.set(key, Array.isArray(value) ? value : [])
         }
       })
       set({ visibleCubes: cubeMap, currentPattern: 'custom' })
@@ -266,70 +271,69 @@ export const useLogoCubeStore = create((set, get) => ({
   
   // Export all settings to a complete configuration object
   exportFullConfig: () => {
-    const state = get()
+    const { visibleCubes, visual, animation, currentPattern } = get()
+    
+    // Convert visibleCubes Map to array format for JSON
+    const cubes = Array.from(visibleCubes.entries()).map(([key, sides]) => {
+      const [x, y, z] = key.split(',').map(Number)
+      return { x, y, z, sides }
+    })
     
     return {
-      // Include all the visual settings
-      visual: { ...state.visual },
-      
-      // Include animation settings
-      animation: { ...state.animation },
-      
-      // Include meta information
-      meta: {
-        patternName: state.currentPattern,
-        exportDate: new Date().toISOString(),
-        version: "1.0"
+      cubes,
+      colors: {
+        a: visual.color,
+        b: visual.accentColor
       },
-      
-      // Include the pattern of cubes using the pattern export
-      pattern: state.exportPattern()
+      meta: {
+        patternName: currentPattern,
+        size: get().size
+      },
+      animation
     }
   },
   
   // Import a full configuration
   importFullConfig: (config) => {
-    // Validate the config
-    if (!config || !config.pattern || !config.visual || !config.animation) {
-      console.error("Invalid configuration format")
-      return false
-    }
-    
     try {
-      // Update visual settings
-      get().setColor(config.visual.color || '#fc0398')
-      get().setCubeSize(config.visual.cubeSize || 0.8)
-      get().setGap(config.visual.gap || 0.2)
-      
-      // Update animation settings
-      get().setAnimationType(config.animation.type || 'wave')
-      get().setAnimationSpeed(config.animation.speed || 1.0)
-      get().setInteractionFactor(config.animation.interactionFactor || 0.3)
-      
-      // Update the pattern - convert to Map
-      const visibleCubes = new Map()
-      
-      if (Array.isArray(config.pattern)) {
-        config.pattern.forEach(cube => {
-          if (typeof cube.x === 'number' && 
-              typeof cube.y === 'number' && 
-              typeof cube.z === 'number') {
-            // Apply coordinate transformation
-            const [newX, newY, newZ] = transformCoordinates(cube.x, cube.y, cube.z)
-            visibleCubes.set(`${newX},${newY},${newZ}`, 1)
-          }
-        })
+      if (!config.cubes || !Array.isArray(config.cubes)) {
+        return false
       }
       
-      // Update the store with the new pattern
+      // Convert cubes array to Map
+      const visibleCubes = new Map()
+      config.cubes.forEach(cube => {
+        if (typeof cube.x === 'number' && 
+            typeof cube.y === 'number' && 
+            typeof cube.z === 'number') {
+          visibleCubes.set(`${cube.x},${cube.y},${cube.z}`, cube.sides || [])
+        }
+      })
+      
+      // Update colors if provided
+      const visual = { ...get().visual }
+      if (config.colors) {
+        if (config.colors.a) visual.color = config.colors.a
+        if (config.colors.b) visual.accentColor = config.colors.b
+      }
+      
+      // Update pattern name if provided
+      const currentPattern = config.meta?.patternName || 'custom'
+      
+      // Update animation if provided
+      const animation = config.animation ? { ...config.animation } : get().animation
+      
+      // Update store
       set({ 
-        visibleCubes,
-        currentPattern: config.meta?.patternName || 'custom'
+        visibleCubes, 
+        visual, 
+        animation, 
+        currentPattern
       })
       
       return true
     } catch (error) {
-      console.error("Error importing configuration:", error)
+      console.error('Error importing configuration:', error)
       return false
     }
   },
@@ -364,7 +368,7 @@ export const useLogoCubeStore = create((set, get) => ({
         for (let x = 0; x < size; x++) {
           for (let y = 0; y < size; y++) {
             for (let z = 0; z < size; z++) {
-              visibleCubes.set(`${x},${y},${z}`, 1)
+              visibleCubes.set(`${x},${y},${z}`, [])
             }
           }
         }
@@ -400,7 +404,7 @@ export const useLogoCubeStore = create((set, get) => ({
             z === 0 || z === size - 1
           ) {
             // Use a string key for the map: "x,y,z"
-            visibleCubes.set(`${x},${y},${z}`, 1)
+            visibleCubes.set(`${x},${y},${z}`, [])
           }
         }
       }
@@ -419,7 +423,7 @@ export const useLogoCubeStore = create((set, get) => ({
       for (let y = 0; y < size; y++) {
         for (let z = 0; z < size; z++) {
           if (patternFunc(x, y, z, size)) {
-            visibleCubes.set(`${x},${y},${z}`, 1)
+            visibleCubes.set(`${x},${y},${z}`, [])
           }
         }
       }
@@ -430,16 +434,21 @@ export const useLogoCubeStore = create((set, get) => ({
   
   // Toggle a specific cube's visibility
   toggleCube: (x, y, z) => {
-    const visibleCubes = new Map(get().visibleCubes)
+    const { visibleCubes } = get()
     const key = `${x},${y},${z}`
     
+    // Clone the Map to maintain immutability
+    const newVisibleCubes = new Map(visibleCubes)
+    
     if (visibleCubes.has(key)) {
-      visibleCubes.delete(key)
+      // Remove cube if it exists
+      newVisibleCubes.delete(key)
     } else {
-      visibleCubes.set(key, 1)
+      // Add cube with empty sides array if it doesn't exist
+      newVisibleCubes.set(key, [])
     }
     
-    set({ visibleCubes })
+    set({ visibleCubes: newVisibleCubes })
   },
   
   // Set animation type
@@ -490,13 +499,49 @@ export const useLogoCubeStore = create((set, get) => ({
     set({ visual })
   },
   
+  // Set accent color
+  setAccentColor: (color) => {
+    const { visual } = get()
+    set({ visual: { ...visual, accentColor: color } })
+  },
+  
+  // Toggle accent color on a specific side of a cube
+  setAccentSide: (x, y, z, face) => {
+    const { visibleCubes } = get()
+    const key = `${x},${y},${z}`
+    
+    // If cube doesn't exist, do nothing
+    if (!visibleCubes.has(key)) return
+    
+    // Clone the Map to maintain immutability
+    const newVisibleCubes = new Map(visibleCubes)
+    
+    // Get current sides array for this cube
+    const sides = [...(visibleCubes.get(key) || [])]
+    
+    // Check if this face already has a color setting
+    const existingIndex = sides.findIndex(side => side.face === face)
+    
+    if (existingIndex >= 0) {
+      // Remove the face entry if it exists (toggle off)
+      sides.splice(existingIndex, 1)
+    } else {
+      // Add face with accent color (b)
+      sides.push({ face, color: 'b' })
+    }
+    
+    // Update the cube's sides in the map
+    newVisibleCubes.set(key, sides)
+    set({ visibleCubes: newVisibleCubes })
+  },
+  
   initializeGNSLogo: async () => {
     try {
       const logoData = await import('../data/gnsLogo.json');
       const newVisibleCubes = new Map();
       logoData.default.forEach(coord => {
         const key = `${coord.x},${coord.y},${coord.z}`;
-        newVisibleCubes.set(key, 1);
+        newVisibleCubes.set(key, coord.sides || []);
       });
       set({ visibleCubes: newVisibleCubes });
     } catch (error) {

@@ -144,7 +144,7 @@ const InteractiveCubeGrid = ({ size = 5, cubeSize = 0.8, gap = 0.2 }) => {
 }
 
 // Scene component to hold all Three.js elements
-const DesignerScene = ({ wireframe, showGrid, showCoordinates, cubeColor, textColor, orbitControlsRef, autoRotate }) => {
+const DesignerScene = ({ wireframe, showGrid, showCoordinates, mainColor, accentColor, textColor, orbitControlsRef, autoRotate }) => {
   return (
     <>
       <color attach="background" args={['lightgray']} />
@@ -154,7 +154,8 @@ const DesignerScene = ({ wireframe, showGrid, showCoordinates, cubeColor, textCo
       {/* Use the TexturedLogoCube component with the selected colors */}
       <TexturedLogoCube 
         wireframe={wireframe} 
-        color={cubeColor} 
+        mainColor={mainColor} 
+        accentColor={accentColor} 
         textColor={textColor} 
       />
       
@@ -201,7 +202,8 @@ const DesignerExperience = () => {
   const [patternName, setPatternName] = useState('')
   
   // Color state
-  const [cubeColor, setCubeColor] = useState(logoCubeStore.visual.color)
+  const [mainColor, setMainColor] = useState(logoCubeStore.visual.color)
+  const [accentColor, setAccentColor] = useState(logoCubeStore.visual.accentColor)
   const [textColor, setTextColor] = useState('#000000')
   
   // Camera controls state
@@ -264,10 +266,16 @@ const DesignerExperience = () => {
     logoCubeStore.setCurrentPattern(pattern)
   }
   
-  // Handle updating the cube color
-  const handleCubeColorChange = (color) => {
-    setCubeColor(color)
+  // Handle updating the main color
+  const handleMainColorChange = (color) => {
+    setMainColor(color)
     logoCubeStore.setColor(color)
+  }
+  
+  // Handle updating the accent color
+  const handleAccentColorChange = (color) => {
+    setAccentColor(color)
+    logoCubeStore.setAccentColor(color)
   }
   
   // Camera control functions
@@ -423,7 +431,8 @@ const DesignerExperience = () => {
         if (success) {
           // Update UI state to match the imported config
           setPatternName(config.meta?.patternName || 'custom')
-          setCubeColor(config.visual?.color || '#fc0398')
+          setMainColor(config.colors?.a || '#fc0398')
+          setAccentColor(config.colors?.b || '#333333')
           // Show success message
           alert('Configuration imported successfully!')
         } else {
@@ -472,9 +481,15 @@ const DesignerExperience = () => {
         
         <h3>Appearance</h3>
         <ColorPickerInput 
-          label="Cube Color" 
-          value={cubeColor} 
-          onChange={handleCubeColorChange} 
+          label="Main Color" 
+          value={mainColor} 
+          onChange={handleMainColorChange} 
+        />
+        
+        <ColorPickerInput 
+          label="Accent Color" 
+          value={accentColor} 
+          onChange={handleAccentColorChange} 
         />
         
         <ColorPickerInput 
@@ -595,7 +610,8 @@ const DesignerExperience = () => {
           wireframe={debugOptions.showWireframe}
           showGrid={debugOptions.showGrid}
           showCoordinates={debugOptions.showCoordinates}
-          cubeColor={cubeColor}
+          mainColor={mainColor}
+          accentColor={accentColor}
           textColor={textColor}
           orbitControlsRef={orbitControlsRef}
           autoRotate={cameraControls.autoRotate}
