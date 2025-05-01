@@ -37,7 +37,7 @@ export function CoordinateLabels({
           }
           
           // Calculate world position
-          const worldX = (x - offset) * (cubeSize + gap)
+          const worldX = (size - 1 - x - offset) * (cubeSize + gap)
           const worldY = (y - offset) * (cubeSize + gap)
           const worldZ = (z - offset) * (cubeSize + gap)
           
@@ -290,33 +290,33 @@ export function GridCoordinatesHelper({ size, ...props }) {
   
   return (
     <group {...props}>
-      {/* X axis - red */}
+      {/* Y axis - green */}
       <group position={[halfSize, 0, 0]}>
         <mesh>
-          <cylinderGeometry args={[0.03, 0.03, halfSize * 2, 8]} />
-          <meshBasicMaterial color="red" />
-        </mesh>
-        <Text
-          position={[halfSize * 0.3, 0, 0]}
-          fontSize={0.3}
-          color="red"
-        >
-          X
-        </Text>
-      </group>
-      
-      {/* Y axis - green */}
-      <group position={[0, halfSize, 0]}>
-        <mesh rotation={[0, 0, Math.PI / 2]}>
           <cylinderGeometry args={[0.03, 0.03, halfSize * 2, 8]} />
           <meshBasicMaterial color="green" />
         </mesh>
         <Text
-          position={[0, halfSize * 0.3, 0]}
+          position={[halfSize * 0.3, 0, 0]}
           fontSize={0.3}
           color="green"
         >
           Y
+        </Text>
+      </group>
+      
+      {/* X axis - red */}
+      <group position={[0, halfSize, 0]}>
+        <mesh rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.03, 0.03, halfSize * 2, 8]} />
+          <meshBasicMaterial color="red" />
+        </mesh>
+        <Text
+          position={[0, halfSize * 0.3, 0]}
+          fontSize={0.3}
+          color="red"
+        >
+          X
         </Text>
       </group>
       

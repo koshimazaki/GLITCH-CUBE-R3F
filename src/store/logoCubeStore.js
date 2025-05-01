@@ -54,9 +54,10 @@ const createNPattern = (size, visibleCubes) => {
       for (let z = 0; z < size; z++) {
         const key = `${x},${y},${z}`
         visibleCubes.delete(key)
-        if ((x === 0 && y >= 0 && y < size && z === mid) ||
-            (x === size - 1 && y >= 0 && y < size && z === mid) ||
-            (x === y && z === mid)) {
+        // Modified pattern with reversed x coordinates for N shape
+        if ((x === size - 1 && y >= 0 && y < size && z === mid) ||  // Right vertical line (was left)
+            (x === 0 && y >= 0 && y < size && z === mid) ||         // Left vertical line (was right)
+            (x === size - 1 - y && z === mid)) {                    // Diagonal from top-left to bottom-right
           visibleCubes.set(key, { visible: true, sides: {} })
         }
       }
@@ -179,7 +180,7 @@ export const useLogoCubeStore = create((set, get) => ({
     // Create new object references to ensure React detects the change
     const newSides = { ...cubeData.sides }
     
-    if (color === 'b') {
+      if (color === 'b') {
       // Add accent color
       newSides[face] = 'b'
     } else if (color === 'a') {
@@ -228,19 +229,19 @@ export const useLogoCubeStore = create((set, get) => ({
       console.log("Loading pattern:", visibleCubes);
       let cubeMap = new Map();
       
-      // If it's already a Map, use it directly
-      if (visibleCubes instanceof Map) {
+    // If it's already a Map, use it directly
+    if (visibleCubes instanceof Map) {
         cubeMap = visibleCubes;
         console.log("Using direct Map for pattern");
-      } 
+    } 
       // If it's an array, process it
-      else if (Array.isArray(visibleCubes)) {
+    else if (Array.isArray(visibleCubes)) {
         console.log("Processing array pattern with", visibleCubes.length, "cubes");
         visibleCubes.forEach((cube, index) => {
-          if (typeof cube.x === 'number' && 
-              typeof cube.y === 'number' && 
-              typeof cube.z === 'number') {
-            // Apply coordinate transformation here
+        if (typeof cube.x === 'number' && 
+            typeof cube.y === 'number' && 
+            typeof cube.z === 'number') {
+          // Apply coordinate transformation here
             const [newX, newY, newZ] = transformCoordinates(cube.x, cube.y, cube.z);
             const key = `${newX},${newY},${newZ}`;
             const sides = {};
@@ -310,12 +311,12 @@ export const useLogoCubeStore = create((set, get) => ({
           console.log("Setting colors from pattern:", visibleCubes.colors);
           get().setColors(visibleCubes.colors);
         }
-      }
-      // If it's a raw object, convert to Map
-      else if (typeof visibleCubes === 'object') {
+    }
+    // If it's a raw object, convert to Map
+    else if (typeof visibleCubes === 'object') {
         console.log("Processing raw object pattern");
-        Object.entries(visibleCubes).forEach(([key, value]) => {
-          if (value) {
+      Object.entries(visibleCubes).forEach(([key, value]) => {
+        if (value) {
             cubeMap.set(key, { visible: true, sides: {} });
           }
         });
@@ -418,19 +419,19 @@ export const useLogoCubeStore = create((set, get) => ({
               typeof cube.y === 'number' && 
               typeof cube.z === 'number') {
             // Apply coordinate transformation
-            const [newX, newY, newZ] = transformCoordinates(cube.x, cube.y, cube.z)
+          const [newX, newY, newZ] = transformCoordinates(cube.x, cube.y, cube.z)
             const key = `${newX},${newY},${newZ}`
-            const sides = {}
-            
+          const sides = {}
+          
             // Handle sides in different formats
-            if (Array.isArray(cube.sides)) {
+          if (Array.isArray(cube.sides)) {
               // Format: [{face: "front", color: "b"}, ...]
               console.log(`Cube ${index} has ${cube.sides.length} sides defined as array`)
-              cube.sides.forEach(side => {
-                if (side.face && side.color) {
-                  sides[side.face] = side.color
-                }
-              })
+            cube.sides.forEach(side => {
+              if (side.face && side.color) {
+                sides[side.face] = side.color
+              }
+            })
             } else if (typeof cube.sides === 'object' && cube.sides !== null) {
               // Format: {front: "b", back: "b"}
               console.log(`Cube ${index} has sides defined as object`)

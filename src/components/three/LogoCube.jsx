@@ -79,7 +79,7 @@ export function LogoCube({
           const [x, y, z] = key.split(',').map(Number)
           
           // Convert from grid position to world position
-          const worldX = (x - offset) * (cubeSize + gap)
+          const worldX = (size - 1 - x - offset) * (cubeSize + gap)
           const worldY = (y - offset) * (cubeSize + gap)
           const worldZ = (z - offset) * (cubeSize + gap)
           
@@ -103,7 +103,7 @@ export function LogoCube({
               z === 0 || z === size - 1
             ) {
               // Convert from grid position to world position
-              const worldX = (x - offset) * (cubeSize + gap)
+              const worldX = (size - 1 - x - offset) * (cubeSize + gap)
               const worldY = (y - offset) * (cubeSize + gap)
               const worldZ = (z - offset) * (cubeSize + gap)
               

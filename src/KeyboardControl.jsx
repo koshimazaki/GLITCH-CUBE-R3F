@@ -139,11 +139,11 @@ export default function KeyboardControl({
         // X-axis movement (left-right)
         case 'd': // right
         case 'arrowright':
-          newPos[0] = Math.min(newPos[0] + 1, gridSize - 1)
+          newPos[0] = Math.max(newPos[0] - 1, 0) // Move left (decrease X) when pressing right
           break
         case 'a': // left
         case 'arrowleft':
-          newPos[0] = Math.max(newPos[0] - 1, 0)
+          newPos[0] = Math.min(newPos[0] + 1, gridSize - 1) // Move right (increase X) when pressing left
           break
           
         // Y-axis movement (up-down)
@@ -157,16 +157,17 @@ export default function KeyboardControl({
           break
           
         // Z-axis movement (forward-backward)
-        case 'w': // forward
+        case 's': // forward
           newPos[2] = Math.min(newPos[2] + 1, gridSize - 1)
           break
-        case 's': // backward
+        case 'w': // backward
           newPos[2] = Math.max(newPos[2] - 1, 0)
           break
           
         // Toggle cube with spacebar
         case ' ': // space
-          toggleCube(newPos[0], newPos[1], newPos[2])
+          // Manually fix X coordinate to match visual position
+          toggleCube(gridSize - 1 - newPos[0], newPos[1], newPos[2])
           break
           
         default:

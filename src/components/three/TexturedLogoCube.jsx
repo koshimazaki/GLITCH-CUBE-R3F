@@ -16,6 +16,8 @@ export function CubeWithTextures({ coordinates, wireframe, mainColor, accentColo
   // Get sizing info from store - moved before early return to avoid conditional hooks
   const size = useLogoCubeStore(state => state.visual.cubeSize)
   const gap = useLogoCubeStore(state => state.visual.gap)
+  // Get grid size from store (default to 5 if not available)
+  const gridSize = useLogoCubeStore(state => state.size) || 5
   
   // Create materials for each face in Three.js order:
   // 0: right (+X), 1: left (-X), 2: top (+Y), 3: bottom (-Y), 4: front (+Z), 5: back (-Z)
@@ -87,7 +89,7 @@ export function CubeWithTextures({ coordinates, wireframe, mainColor, accentColo
   if (!cubeData || !cubeData.visible) return null
   
   // Calculate position based on size/gap
-  const offset = 2 // For a 5x5x5 grid, offset is 2
+  const offset = (gridSize - 1) / 2 // Dynamic calculation based on grid size
   
   // Calculate the world position - be explicit about coordinate mapping
   // In Three.js: X is right/left, Y is up/down, Z is forward/backward
