@@ -1,5 +1,5 @@
 import { Canvas } from '@react-three/fiber'
-import { OrbitControls } from '@react-three/drei'
+import { OrbitControls, PerspectiveCamera, Environment, ContactShadows, Grid, GizmoHelper, GizmoViewport, AccumulativeShadows, RandomizedLight } from '@react-three/drei'
 import { useState, useRef, useCallback, useEffect } from 'react'
 import * as THREE from 'three'
 import { GridCoordinatesHelper, TexturedLogoCube, CubeHighlighter } from './components/three/CoordinateLabels'
@@ -10,6 +10,8 @@ import Accordion from '@mui/material/Accordion'
 import AccordionSummary from '@mui/material/AccordionSummary'
 import AccordionDetails from '@mui/material/AccordionDetails'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+
+
 
 // Interactive Cube component for clicking
 const InteractiveCubeGrid = ({ size = 5, cubeSize = 0.8, gap = 0.2 }) => {
@@ -631,7 +633,13 @@ const DesignerExperience = () => {
           orbitControlsRef={orbitControlsRef}
           autoRotate={cameraControls.autoRotate}
         />
+          {/* Gizmo Helper */}
+    <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
+        <GizmoViewport axisColors={['#fc0398', '#42d5ca', '#ffcf33']} labelColor="white" />
+      </GizmoHelper>
       </Canvas>
+
+
     </div>
   )
 }

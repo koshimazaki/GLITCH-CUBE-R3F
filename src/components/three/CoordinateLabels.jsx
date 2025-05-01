@@ -215,7 +215,7 @@ export function TexturedLogoCube({
 export function CubeHighlighter({ 
   coordinates, 
   color = '#ff0000',
-  wireframeWidth = 1,
+  wireframeWidth = 3,
   ...props 
 }) {
   const size = useLogoCubeStore(state => state.size)

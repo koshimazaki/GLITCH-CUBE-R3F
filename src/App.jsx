@@ -96,25 +96,29 @@ export default function App() {
           borderRadius: '10px',
           display: 'flex',
           alignItems: 'center',
-          gap: '15px',
+          gap: '12px',
           backdropFilter: 'blur(5px)',
-          width: '380px',
-          height: '110px'
+          width: '320px',
+          height: '110px',
+          position: 'fixed',
+          top: '10px',
+          right: '10px',
+          zIndex: '100'
         }}>
           <img 
             src="/src/assets/textures/gnscube_logo_transparnt.png" 
             alt="Glitch NFT Studio Logo" 
             style={{
-              width: '80px',
-              height: '80px',
+              width: '60px',
+              height: '60px',
               borderRadius: '10px',
               objectFit: 'cover'
             }}
           />
           <div>
-            <h3> Glitch NFT Studio</h3>
-            <h4> Cube Logo Maker</h4>
-            <p>Interactive 3D logo with custom patterns and animations</p>
+            {/* <h3> Glitch NFT Studio</h3> */}
+            <h3> GNS Cube Logo Maker</h3>
+            <p>Create 3D logo with custom patterns and animations</p>
           </div>
         </div>
       </div>
