@@ -94,12 +94,12 @@ function CameraControls({ orbitControlsRef, autoRotate, setAutoRotate }) {
         </label>
       </div>
       
-      <div className="camera-instructions">
+      {/* <div className="camera-instructions">
         <strong>Interact with 3D view:</strong><br/>
         • <strong>Left-click + drag</strong>: Rotate view<br/>
         • <strong>Right-click + drag</strong>: Pan view<br/>
         • <strong>Scroll wheel</strong>: Zoom in/out
-      </div>
+      </div> */}
     </div>
   )
 }

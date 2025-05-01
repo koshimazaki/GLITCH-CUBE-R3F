@@ -6,6 +6,10 @@ import { GridCoordinatesHelper, TexturedLogoCube, CubeHighlighter } from './comp
 import useLogoCubeStore from './store/logoCubeStore'
 import ColorPickerInput from './components/ui/ColorPickerInput'
 import './DesignerExperience.css'
+import Accordion from '@mui/material/Accordion'
+import AccordionSummary from '@mui/material/AccordionSummary'
+import AccordionDetails from '@mui/material/AccordionDetails'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 
 // Interactive Cube component for clicking
 const InteractiveCubeGrid = ({ size = 5, cubeSize = 0.8, gap = 0.2 }) => {
@@ -136,7 +140,7 @@ const InteractiveCubeGrid = ({ size = 5, cubeSize = 0.8, gap = 0.2 }) => {
   return (
     <group ref={groupRef}>
       {hitboxes}
-      {hovered && <CubeHighlighter coordinates={hovered} color="#00ff00" />}
+      {hovered && <CubeHighlighter coordinates={hovered} color="#ff05b0" />}
       {/* Always show current position cursor even when not hovering */}
       <CubeHighlighter coordinates={currentPosition} color="#0088ff" />
     </group>
@@ -545,20 +549,53 @@ const DesignerExperience = () => {
           />
         </div>
         
-        <h3>Keyboard Controls</h3>
-        <div className="keyboard-controls">
-          <p><strong>W/S</strong> - Move Up/Down (Y axis)</p>
-          <p><strong>A/D</strong> - Move Left/Right (X axis)</p>
-          <p><strong>Q/E</strong> - Move Back/Forward (Z)</p>
-          <p><strong>Space</strong> - Toggle cube at cursor</p>
-        </div>
-        
-        <h3>Instructions</h3>
-        <p className="instruction-text">
-          Click on any position to add or remove a cube.
-          Hover over a position to see a highlight.
-          Use keyboard to navigate through the grid.
-        </p>
+        {/* Replace separate instruction sections with a single accordion */}
+        <Accordion sx={{ 
+          marginTop: '20px', 
+          boxShadow: '0 2px 6px rgba(0, 0, 0, 0.15)',
+          borderRadius: '4px',
+          '&:before': {
+            display: 'none',
+          }
+        }}>
+          <AccordionSummary
+            expandIcon={<ExpandMoreIcon />}
+            aria-controls="instructions-content"
+            id="instructions-header"
+            sx={{ 
+              backgroundColor: 'rgba(0, 0, 0, 0.05)',
+              borderRadius: '4px'
+            }}
+          >
+            <h3 style={{ margin: 0 }}>Instructions</h3>
+          </AccordionSummary>
+          <AccordionDetails>
+            <div>
+              <h4>Keyboard Controls</h4>
+              <div className="keyboard-controls">
+                <p><strong>W/S</strong> - Up/Down (Y axis)</p>
+                <p><strong>A/D</strong> - Left/Right (X axis)</p>
+                <p><strong>Q/E</strong> - Back/Forward (Z axis)</p>
+                <p><strong>Space</strong> - Toggle cube at cursor</p>
+              </div>
+              
+              <h4>Basic Usage</h4>
+              <p className="instruction-text">
+                Click to add or remove a cube.
+                Hover over to see a highlight.
+                Use keyboard to navigate the grid.
+              </p>
+              
+              <h4>Camera Controls</h4>
+              <p className="camera-instructions">
+                <strong>Interact with 3D view:</strong><br/>
+                • <strong>Left-click + drag</strong>: Rotate view<br/>
+                • <strong>Right-click + drag</strong>: Pan view<br/>
+                • <strong>Scroll wheel</strong>: Zoom in/out
+              </p>
+            </div>
+          </AccordionDetails>
+        </Accordion>
         
         <h3>Camera Controls</h3>
         <div className="camera-controls">
@@ -581,12 +618,6 @@ const DesignerExperience = () => {
               Auto-Rotate
             </label>
           </div>
-          <p className="camera-instructions">
-            <strong>Interact with 3D view:</strong><br/>
-            • <strong>Left-click + drag</strong>: Rotate view<br/>
-            • <strong>Right-click + drag</strong>: Pan view<br/>
-            • <strong>Scroll wheel</strong>: Zoom in/out
-          </p>
         </div>
       </div>
 

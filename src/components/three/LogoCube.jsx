@@ -121,21 +121,33 @@ export function LogoCube({
   // Initialize the instances once
   useEffect(() => {
     if (groupRef.current && cubePositions.length > 0) {
-      // Set initial positions without animation for all cubes
-      cubePositions.forEach((cube, i) => {
-        const [worldX, worldY, worldZ] = cube.position
-        
-        tempObject.position.set(worldX, worldY, worldZ)
-        tempObject.rotation.set(0, 0, 0)
-        tempObject.updateMatrix()
-        
-        groupRef.current.setMatrixAt(i, tempObject.matrix)
-      })
+      console.log(`LogoCube initializing with ${cubePositions.length} cubes`);
       
-      groupRef.current.instanceMatrix.needsUpdate = true
-      groupRef.current.count = cubePositions.length // Set count to match actual visible cubes
+      // Reset instanceMatrix to ensure clean state
+      for (let i = 0; i < 125; i++) {
+        // Move unused instances far away
+        if (i >= cubePositions.length) {
+          tempObject.position.set(10000, 10000, 10000); // Move far away
+        }
+        tempObject.updateMatrix();
+        groupRef.current.setMatrixAt(i, tempObject.matrix);
+      }
+      
+      // Set initial positions without animation for visible cubes
+      cubePositions.forEach((cube, i) => {
+        const [worldX, worldY, worldZ] = cube.position;
+        
+        tempObject.position.set(worldX, worldY, worldZ);
+        tempObject.rotation.set(0, 0, 0);
+        tempObject.updateMatrix();
+        
+        groupRef.current.setMatrixAt(i, tempObject.matrix);
+      });
+      
+      groupRef.current.instanceMatrix.needsUpdate = true;
+      groupRef.current.count = cubePositions.length; // Set count to match actual visible cubes
     }
-  }, [cubePositions, tempObject])
+  }, [cubePositions, tempObject]);
   
   // Memoize animation function to prevent recreation on each frame
   const animateCubes = useCallback((state) => {
@@ -361,6 +373,14 @@ export function LogoCube({
     
     // Mark instance matrix as needing an update
     groupRef.current.instanceMatrix.needsUpdate = true
+    groupRef.current.count = cubePositions.length // Ensure count stays at the correct value during animations
+    
+    // Move any unused instances far away from the scene
+    for (let i = cubePositions.length; i < 125; i++) {
+      tempObject.position.set(10000, 10000, 10000)
+      tempObject.updateMatrix()
+      groupRef.current.setMatrixAt(i, tempObject.matrix)
+    }
   }, [cubePositions, finalValues, mouse, tempObject])
   
   // Animation frame
@@ -375,7 +395,7 @@ export function LogoCube({
         (useStoreConfig ? storePosition.z : 0) + (props.position?.[2] || 0)
       ]}
     >
-      <Instances limit={125} ref={groupRef} castShadow receiveShadow>
+      <Instances limit={125} count={cubePositions.length} ref={groupRef} castShadow receiveShadow>
         <boxGeometry args={[finalValues.cubeSize, finalValues.cubeSize, finalValues.cubeSize]} />
         <meshPhysicalMaterial 
           color={finalValues.color} 

@@ -90,9 +90,33 @@ export default function App() {
       />
       
       <div className="info">
-      <h2> Glitch NFT Studio</h2>
-      <h3> CubeLogo Maker</h3>
-        <p>Interactive 3D logo with customizable patterns and animations</p>
+        <div className="info-panel" style={{
+          backgroundColor: 'rgba(0, 0, 0, 0.35)',
+          padding: '10px',
+          borderRadius: '10px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '15px',
+          backdropFilter: 'blur(5px)',
+          width: '380px',
+          height: '110px'
+        }}>
+          <img 
+            src="/src/assets/textures/gnscube_logo_transparnt.png" 
+            alt="Glitch NFT Studio Logo" 
+            style={{
+              width: '80px',
+              height: '80px',
+              borderRadius: '10px',
+              objectFit: 'cover'
+            }}
+          />
+          <div>
+            <h3> Glitch NFT Studio</h3>
+            <h4> Cube Logo Maker</h4>
+            <p>Interactive 3D logo with custom patterns and animations</p>
+          </div>
+        </div>
       </div>
       
       <div className="mode-switch">
