@@ -3,6 +3,8 @@ import { OrbitControls, PerspectiveCamera, Environment, ContactShadows, Grid, Gi
 import { LogoCubeWithStore } from './components/three/LogoCube'
 import useLogoCubeStore from './store/logoCubeStore'
 import { useControls, button } from 'leva'
+import KeyboardControl from './KeyboardControl'
+
 
 // Colors palette 
 // https://coolors.co/fc0398-e25259-e66255-ea7250-f19146-ffcf33-42d5ca-03d7fc-0f4757-15171a
@@ -57,8 +59,12 @@ export default function Experience() {
       max: 1, 
       step: 0.01,
       onChange: (value) => {
-        // Store moveSpeed in a ref to avoid recreating the effect
-        moveSpeedRef.current = value
+        // Update moveSpeed in the store
+        if (useLogoCubeStore.getState().setMoveSpeed) {
+          useLogoCubeStore.getState().setMoveSpeed(value)
+        } else {
+          console.warn('setMoveSpeed not available in the store')
+        }
       }
     },
     enableKeyboardControls: {
@@ -76,9 +82,6 @@ export default function Experience() {
     },
     resetPosition: button(() => useLogoCubeStore.getState().resetPosition()),
   })
-  
-  // Ref to store movement speed for the keyboard movement effect
-  const moveSpeedRef = useRef(0.1)
   
   // Create instructions element
   useEffect(() => {
@@ -141,72 +144,6 @@ export default function Experience() {
       instructions.style.opacity = '0'
     }
   }
-  
-  // Keyboard movement controls (WASD)
-  useEffect(() => {
-    const store = useLogoCubeStore.getState()
-    
-    // Keys being pressed
-    const keysPressed = new Set()
-    
-    // Handle key down event
-    const handleKeyDown = (e) => {
-      keysPressed.add(e.key.toLowerCase())
-      
-      // Move continuously while keys are pressed
-      if (keysPressed.size > 0) {
-        requestAnimationFrame(moveWithKeys)
-      }
-    }
-    
-    // Handle key up event
-    const handleKeyUp = (e) => {
-      keysPressed.delete(e.key.toLowerCase())
-    }
-    
-    // Move cube based on keys pressed
-    const moveWithKeys = () => {
-      // Get current enableKeyboardControls value
-      const currentlyEnabled = useLogoCubeStore.getState().enableKeyboardControls
-      if (!currentlyEnabled) return
-      
-      // Move based on which keys are pressed
-      if (keysPressed.has('w')) {
-        store.moveZ(-moveSpeedRef.current)
-      }
-      if (keysPressed.has('s')) {
-        store.moveZ(moveSpeedRef.current)
-      }
-      if (keysPressed.has('a')) {
-        store.moveX(-moveSpeedRef.current)
-      }
-      if (keysPressed.has('d')) {
-        store.moveX(moveSpeedRef.current)
-      }
-      if (keysPressed.has('q')) {
-        store.moveY(moveSpeedRef.current)
-      }
-      if (keysPressed.has('e')) {
-        store.moveY(-moveSpeedRef.current)
-      }
-      
-      // Continue moving if keys are still pressed
-      if (keysPressed.size > 0) {
-        requestAnimationFrame(moveWithKeys)
-      }
-    }
-    
-    // Add event listeners
-    window.addEventListener('keydown', handleKeyDown)
-    window.addEventListener('keyup', handleKeyUp)
-    
-    // Clean up
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('keyup', handleKeyUp)
-      keysPressed.clear()
-    }
-  }, [])
   
   // Make the controls ref available to other components
   useEffect(() => {
@@ -326,6 +263,10 @@ export default function Experience() {
       <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
         <GizmoViewport axisColors={['#fc0398', '#42d5ca', '#ffcf33']} labelColor="white" />
       </GizmoHelper>
+      
+      {/* Centralized keyboard controls */}
+      <KeyboardControl />
+
     </>
   )
 }
