@@ -1,9 +1,10 @@
-import { useRef, useMemo, useState, useCallback, useEffect } from 'react'
+import React, { useRef, useMemo, useState, useCallback, useEffect, createRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Instance, Instances } from '@react-three/drei'
 import * as THREE from 'three'
 import { useControls } from 'leva'
 import useLogoCubeStore from '../../store/logoCubeStore'
+import { gridToWorld } from '../../utils/coordinateUtils'
 
 /**
  * GNS Logo Cube - Renders a 5x5x5 cube with specified voxels present/missing
@@ -17,6 +18,7 @@ export function LogoCube({
   animationSpeed = 1,
   animationType = 'wave',
   interactionFactor = 0.3,
+  rippleInteractionFactor = 0.5,
   useStoreConfig = false,
   materialSettings = {
     roughness: 0.3,
@@ -29,9 +31,6 @@ export function LogoCube({
 }) {
   // Reference to the entire instances group
   const groupRef = useRef()
-  
-  // Create a temp object for matrix calculations
-  const tempObject = useMemo(() => new THREE.Object3D(), [])
   
   // Mouse position state for interactivity
   const [mouse, setMouse] = useState([0, 0])
@@ -58,18 +57,20 @@ export function LogoCube({
     animationType: useStoreConfig ? storeAnimationType : animationType,
     animationSpeed: useStoreConfig ? storeAnimationSpeed : animationSpeed,
     interactionFactor: useStoreConfig ? storeInteractionFactor : interactionFactor,
+    rippleInteractionFactor: useStoreConfig ? (storeInteractionFactor * 1.5) : rippleInteractionFactor,
     offset: ((useStoreConfig ? storeSize : size) - 1) / 2,
     delay: useStoreConfig ? (storeAnimationDelay || 0.1) : 0.1
   }), [
     useStoreConfig, 
-    size, cubeSize, gap, mainColor, accentColor, animationType, animationSpeed, interactionFactor,
+    size, cubeSize, gap, mainColor, accentColor, animationType, animationSpeed, 
+    interactionFactor, rippleInteractionFactor,
     storeSize, storeVisualCubeSize, storeVisualGap, storeVisualColors, 
     storeAnimationType, storeAnimationSpeed, storeInteractionFactor, storeAnimationDelay
   ])
   
   // Define which cubes are visible in the 5x5x5 grid
   const cubePositions = useMemo(() => {
-    const { size, cubeSize, gap, offset } = finalValues
+    const { size, cubeSize, gap } = finalValues
     const pattern = []
     
     // If using store configuration, use the visibleCubes map
@@ -78,10 +79,8 @@ export function LogoCube({
         if (cubeData.visible) {
           const [x, y, z] = key.split(',').map(Number)
           
-          // Convert from grid position to world position
-          const worldX = (size - 1 - x - offset) * (cubeSize + gap)
-          const worldY = (y - offset) * (cubeSize + gap)
-          const worldZ = (z - offset) * (cubeSize + gap)
+          // Convert from grid position to world position using utility function
+          const [worldX, worldY, worldZ] = gridToWorld(x, y, z, size, cubeSize, gap)
           
           pattern.push({
             id: key,
@@ -102,10 +101,8 @@ export function LogoCube({
               y === 0 || y === size - 1 ||
               z === 0 || z === size - 1
             ) {
-              // Convert from grid position to world position
-              const worldX = (size - 1 - x - offset) * (cubeSize + gap)
-              const worldY = (y - offset) * (cubeSize + gap)
-              const worldZ = (z - offset) * (cubeSize + gap)
+              // Convert from grid position to world position using utility function
+              const [worldX, worldY, worldZ] = gridToWorld(x, y, z, size, cubeSize, gap)
               
               pattern.push({
                 id: `${x},${y},${z}`,
@@ -127,268 +124,294 @@ export function LogoCube({
     if (groupRef.current && cubePositions.length > 0) {
       console.log(`LogoCube initializing with ${cubePositions.length} cubes`);
       
-      // Reset instanceMatrix to ensure clean state
-      for (let i = 0; i < 125; i++) {
-        // Move unused instances far away
-        if (i >= cubePositions.length) {
-          tempObject.position.set(10000, 10000, 10000); // Move far away
-        }
-        tempObject.updateMatrix();
-        groupRef.current.setMatrixAt(i, tempObject.matrix);
-      }
-      
-      // Set initial positions without animation for visible cubes
-      cubePositions.forEach((cube, i) => {
-        const [worldX, worldY, worldZ] = cube.position;
-        
-        tempObject.position.set(worldX, worldY, worldZ);
-        tempObject.rotation.set(0, 0, 0);
-        tempObject.updateMatrix();
-        
-        groupRef.current.setMatrixAt(i, tempObject.matrix);
-      });
-      
-      groupRef.current.instanceMatrix.needsUpdate = true;
-      groupRef.current.count = cubePositions.length; // Set count to match actual visible cubes
+      // No need to initialize matrix instances since we're using individual meshes
+      // Just ensure we have the right number of refs
+      meshRefs.current = Array(cubePositions.length).fill().map((_, i) => 
+        meshRefs.current[i] || createRef()
+      );
     }
-  }, [cubePositions, tempObject]);
+  }, [cubePositions]);
   
-  // Memoize animation function to prevent recreation on each frame
+  // Updated animation function to work with individual meshes
   const animateCubes = useCallback((state) => {
-    const { clock, mouse: sceneMouse } = state
-    const { animationSpeed, animationType, interactionFactor } = finalValues
-    const time = clock.getElapsedTime() * animationSpeed
+    const { clock, mouse: sceneMouse } = state;
+    const { animationSpeed, animationType, interactionFactor, rippleInteractionFactor } = finalValues;
+    const time = clock.getElapsedTime() * animationSpeed;
     
     // Don't animate if animation type is 'none'
-    if (animationType === 'none') return
+    if (animationType === 'none') return;
     
     // Update mouse position with smoothing
     setMouse((prev) => [
       prev[0] + (sceneMouse.x - prev[0]) * 0.1,
       prev[1] + (sceneMouse.y - prev[1]) * 0.1
-    ])
+    ]);
     
-    if (!groupRef.current) return
-    
-    // Animate each cube
+    // Animate each cube mesh directly
     cubePositions.forEach((cube, i) => {
-      const { position, gridPosition } = cube
+      const mesh = meshRefs.current[i]?.current;
+      if (!mesh) return;
+      
+      const { position, gridPosition } = cube;
       
       // Get base position
-      const [baseX, baseY, baseZ] = position
+      const [baseX, baseY, baseZ] = position;
       
       // Apply different animations based on the selected type
-      let animX = 0, animY = 0, animZ = 0
+      let animX = 0, animY = 0, animZ = 0;
+      let rotX = 0, rotY = 0, rotZ = 0;
       
       switch (animationType) {
         case 'wave': {
           // Wave animation based on grid position and time
-          animY = Math.sin(time + gridPosition[0] + gridPosition[2]) * 0.2
-          break
+          animY = Math.sin(time + gridPosition[0] + gridPosition[2]) * 0.2;
+          break;
         }
           
         case 'breathe': {
           // Breathing animation - all cubes move slightly in and out
-          const breathFactor = Math.sin(time) * 0.1
-          animX = position[0] * breathFactor
-          animY = position[1] * breathFactor
-          animZ = position[2] * breathFactor
-          break
+          const breathFactor = Math.sin(time) * 0.1;
+          animX = position[0] * breathFactor;
+          animY = position[1] * breathFactor;
+          animZ = position[2] * breathFactor;
+          break;
         }
           
         case 'twist': {
           // Twist animation - rotate around the center
-          const angle = time * 0.2
-          const distance = Math.sqrt(position[0] ** 2 + position[2] ** 2)
-          animX = Math.cos(angle) * distance * 0.1
-          animZ = Math.sin(angle) * distance * 0.1
-          break
+          const angle = time * 0.2;
+          const distance = Math.sqrt(position[0] ** 2 + position[2] ** 2);
+          animX = Math.cos(angle) * distance * 0.1;
+          animZ = Math.sin(angle) * distance * 0.1;
+          break;
         }
           
         case 'scatter': {
           // Scatter and reassemble
-          const scatterPhase = (Math.sin(time * 0.3) + 1) / 2 // 0 to 1
-          const randomOffset = Math.sin(i * 5318.323 + time * 0.5) * scatterPhase
-          animX = randomOffset * 1.5
-          animY = Math.sin(i * 1234.123 + time * 0.5) * scatterPhase * 1.5
-          animZ = Math.cos(i * 8675.309 + time * 0.5) * scatterPhase * 1.5
-          break
+          const scatterPhase = (Math.sin(time * 0.3) + 1) / 2; // 0 to 1
+          const randomOffset = Math.sin(i * 5318.323 + time * 0.5) * scatterPhase;
+          animX = randomOffset * 1.5;
+          animY = Math.sin(i * 1234.123 + time * 0.5) * scatterPhase * 1.5;
+          animZ = Math.cos(i * 8675.309 + time * 0.5) * scatterPhase * 1.5;
+          break;
         }
           
         case 'falling': {
           // Falling cubes animation (great for loading screens)
-          const { delay } = finalValues
+          const { delay } = finalValues;
           // Each cube starts falling at a different time based on index
-          const startDelay = i * delay
-          const fallStart = Math.max(0, time - startDelay)
+          const startDelay = i * delay;
+          const fallStart = Math.max(0, time - startDelay);
           
           // If this cube's time to fall has come
           if (fallStart > 0) {
             // Calculate fall position with gravity
-            const gravity = 9.8
-            const fallDistance = 20 // Starting height above final position
-            const fallTime = fallStart
+            const gravity = 9.8;
+            const fallDistance = 20; // Starting height above final position
+            const fallTime = fallStart;
             
             // Standard falling equation with gravity
-            let fallY = fallDistance - 0.5 * gravity * fallTime * fallTime
+            let fallY = fallDistance - 0.5 * gravity * fallTime * fallTime;
             
             // Once it reaches its final position, add a bounce effect
             if (fallY <= 0) {
-              const timeSinceLanding = fallTime - Math.sqrt(2 * fallDistance / gravity)
+              const timeSinceLanding = fallTime - Math.sqrt(2 * fallDistance / gravity);
               
               if (timeSinceLanding > 0) {
                 // Calculate bounce height based on time since landing
-                const bounceHeight = 2 * Math.exp(-timeSinceLanding * 2) // Diminishing bounce
-                fallY = bounceHeight * Math.abs(Math.sin(timeSinceLanding * 5))
+                const bounceHeight = 2 * Math.exp(-timeSinceLanding * 2); // Diminishing bounce
+                fallY = bounceHeight * Math.abs(Math.sin(timeSinceLanding * 5));
               } else {
-                fallY = 0
+                fallY = 0;
               }
             }
             
-            animY = fallY
+            animY = fallY;
           } else {
             // Before falling, keep the cube way above its final position
-            animY = 20
+            animY = 20;
           }
-          break
+          break;
         }
           
         case 'disconnect': {
           // Disconnection effect where cubes pull apart and then reconnect
           // Use a periodic function to create a disconnection cycle
-          const cycleLength = 4.0 // Seconds for full disconnect-reconnect
-          const cycleProgress = (time % cycleLength) / cycleLength
+          const cycleLength = 4.0; // Seconds for full disconnect-reconnect
+          const cycleProgress = (time % cycleLength) / cycleLength;
           
           // Phase 1: Pull apart (0-0.4)
           // Phase 2: Hold disconnected (0.4-0.6)
           // Phase 3: Reconnect (0.6-1.0)
           
-          let disconnectionFactor = 0
+          let disconnectionFactor = 0;
           
           if (cycleProgress < 0.4) {
             // Phase 1: Pulling apart (ease-in)
-            disconnectionFactor = Math.pow(cycleProgress / 0.4, 2)
+            disconnectionFactor = Math.pow(cycleProgress / 0.4, 2);
           } else if (cycleProgress < 0.6) {
             // Phase 2: Hold disconnected
-            disconnectionFactor = 1
+            disconnectionFactor = 1;
           } else {
             // Phase 3: Reconnect (ease-out)
-            disconnectionFactor = Math.pow(1 - (cycleProgress - 0.6) / 0.4, 2)
+            disconnectionFactor = Math.pow(1 - (cycleProgress - 0.6) / 0.4, 2);
           }
           
-          // Direction of disconnection based on position relative to center
-          // Each cube moves away from center
-          const direction = [
-            position[0] === 0 ? 0 : Math.sign(position[0]),
-            position[1] === 0 ? 0 : Math.sign(position[1]),
-            position[2] === 0 ? 0 : Math.sign(position[2]),
-          ]
+          // Calculate direction vector from center 
+          const centerX = size * (cubeSize + gap) / 2;
+          const centerY = size * (cubeSize + gap) / 2;
+          const centerZ = size * (cubeSize + gap) / 2;
           
-          // Apply disconnection effect with random jitter per cube
-          const jitter = Math.sin(i * 1000) * 0.3
-          animX = direction[0] * disconnectionFactor * (1.5 + jitter)
-          animY = direction[1] * disconnectionFactor * (1.5 + jitter)
-          animZ = direction[2] * disconnectionFactor * (1.5 + jitter)
+          const dirX = position[0] - centerX;
+          const dirY = position[1] - centerY;
+          const dirZ = position[2] - centerZ;
           
-          // Add slight rotation during disconnection
-          tempObject.rotation.set(
-            disconnectionFactor * Math.sin(i) * Math.PI * 0.2,
-            disconnectionFactor * Math.cos(i) * Math.PI * 0.2,
-            disconnectionFactor * Math.sin(i * 2) * Math.PI * 0.2
-          )
-          break
+          // Normalize and apply disconnection
+          const length = Math.sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
+          
+          if (length > 0) {
+            const moveFactor = disconnectionFactor * 2; // Adjust this for disconnect distance
+            animX = (dirX / length) * moveFactor;
+            animY = (dirY / length) * moveFactor;
+            animZ = (dirZ / length) * moveFactor;
+          }
+          break;
         }
           
         case 'assembly': {
-          // Assembly/disassembly animation - cubes come together to form the shape
-          const { delay } = finalValues
-          const assemblyDuration = 2.0 // seconds
-          const fullCycleTime = 5.0 // total cycle time including pause
+          // Assembly effect for revealing the logo
+          const cycleLength = 6.0;
+          const cycleProgress = Math.min(time / cycleLength, 1.0); // Progress capped at 1
           
-          // Calculate the current phase in the cycle (0 to 1)
-          const cycleTime = time % fullCycleTime
-          const cyclePhase = cycleTime / fullCycleTime
+          // Easing function for smooth assembly
+          const easeOutQuart = (x) => 1 - Math.pow(1 - x, 4);
+          const easedProgress = easeOutQuart(cycleProgress);
           
-          // Determine if we're in assembly or disassembly phase
-          const isAssembling = cyclePhase < 0.5
+          // Starting position - random, far away
+          // Ending position - the correct grid position
           
-          // Calculate progress through current phase
-          const phaseProgress = isAssembling ? 
-            cyclePhase * 2 : // 0->0.5 maps to 0->1 
-            (1 - (cyclePhase - 0.5) * 2) // 0.5->1 maps to 1->0
+          // Generate a consistent random start position for each cube
+          const rndX = Math.sin(i * 1234.5) * 10;
+          const rndY = Math.cos(i * 5678.9) * 10; 
+          const rndZ = Math.sin(i * 9101.2) * 10;
           
-          // Delay start based on cube index for staggered effect
-          const startDelay = i * delay
-          const adjustedProgress = Math.max(0, Math.min(1, (phaseProgress * assemblyDuration - startDelay) / (assemblyDuration - startDelay * cubePositions.length / 20)))
-          
-          // Calculate the starting position (far from center)
-          const startPositionFactor = 10 // how far cubes start from center
-          const randomDir = [
-            Math.sin(i * 123.456),
-            Math.sin(i * 234.567),
-            Math.sin(i * 345.678)
-          ]
-          
-          // Interpolate between scattered position and final position
-          const interpolationFactor = Math.pow(adjustedProgress, 2) // Ease-in curve
-          
-          animX = randomDir[0] * startPositionFactor * (1 - interpolationFactor)
-          animY = randomDir[1] * startPositionFactor * (1 - interpolationFactor)
-          animZ = randomDir[2] * startPositionFactor * (1 - interpolationFactor)
+          // Lerp between random start and final position
+          const lerpFactor = easedProgress;
+          animX = rndX * (1 - lerpFactor);
+          animY = rndY * (1 - lerpFactor);
+          animZ = rndZ * (1 - lerpFactor);
           
           // Add rotation during assembly
-          const rotationAmount = (1 - interpolationFactor) * Math.PI * 2
-          tempObject.rotation.set(
-            randomDir[0] * rotationAmount,
-            randomDir[1] * rotationAmount,
-            randomDir[2] * rotationAmount
-          )
-          break
+          rotX = (1 - lerpFactor) * Math.PI * 2 * Math.sin(i * 3.14);
+          rotY = (1 - lerpFactor) * Math.PI * 2 * Math.cos(i * 1.618);
+          rotZ = (1 - lerpFactor) * Math.PI * 2 * Math.sin(i * 2.718);
+          break;
         }
-          
-        default:
-          break
       }
       
-      // Add mouse interaction
-      animX += mouse[0] * interactionFactor * position[0]
-      animY += mouse[1] * interactionFactor * position[1]
+      // Apply both interaction types if enabled
       
-      // Apply position with animation
-      tempObject.position.set(
-        baseX + animX,
-        baseY + animY,
-        baseZ + animZ
-      )
+      // 1. Original interaction - direct influence based on mouse position
+      if (interactionFactor > 0) {
+        // Original behavior - affects both X and Y directly
+        animX += mouse[0] * interactionFactor * position[0];
+        animY += mouse[1] * interactionFactor * position[1];
+      }
       
-      // Apply subtle rotation based on animation
-      tempObject.rotation.set(
-        mouse[1] * 0.1 * interactionFactor,
-        mouse[0] * 0.1 * interactionFactor,
-        0
-      )
+      // 2. Ripple interaction - distance-based influence (additive to direct interaction)
+      if (rippleInteractionFactor > 0) {
+        // Calculate distance from cursor position to cube
+        const distX = baseX - (mouse[0] * 10); // Scale mouse influence
+        const distZ = baseZ - (mouse[1] * 10);
+        const distance = Math.sqrt(distX * distX + distZ * distZ);
+        
+        // Apply influence based on distance (inverse square)
+        const influence = 1 / (distance * distance + 0.1) * rippleInteractionFactor;
+        
+        // Add ripple effect on top of any existing Y movement
+        animY += influence;
+      }
       
-      // Update the matrix
-      tempObject.updateMatrix()
+      // Update mesh position and rotation
+      mesh.position.set(baseX + animX, baseY + animY, baseZ + animZ);
       
-      // Set the matrix for this instance
-      groupRef.current.setMatrixAt(i, tempObject.matrix)
-    })
-    
-    // Mark instance matrix as needing an update
-    groupRef.current.instanceMatrix.needsUpdate = true
-    groupRef.current.count = cubePositions.length // Ensure count stays at the correct value during animations
-    
-    // Move any unused instances far away from the scene
-    for (let i = cubePositions.length; i < 125; i++) {
-      tempObject.position.set(10000, 10000, 10000)
-      tempObject.updateMatrix()
-      groupRef.current.setMatrixAt(i, tempObject.matrix)
-    }
-  }, [cubePositions, finalValues, mouse, tempObject])
+      // Apply rotation based on animation or mouse
+      if (rotX !== 0 || rotY !== 0 || rotZ !== 0) {
+        mesh.rotation.set(rotX, rotY, rotZ);
+      } else if (interactionFactor > 0) {
+        // Apply subtle rotation based on mouse position
+        mesh.rotation.set(
+          mouse[1] * 0.1 * interactionFactor,
+          mouse[0] * 0.1 * interactionFactor,
+          0
+        );
+      }
+    });
+  }, [cubePositions, finalValues, mouse, setMouse, size, cubeSize, gap]);
   
   // Animation frame
   useFrame(animateCubes)
+  
+  // Create an array of materials for each cube with its side colors
+  const materials = useMemo(() => {
+    return cubePositions.map(cube => {
+      const { sides } = cube;
+      
+      // Create a default material using the main color
+      const defaultMaterial = new THREE.MeshPhysicalMaterial({
+        color: finalValues.mainColor,
+        roughness: materialSettings.roughness,
+        metalness: materialSettings.metalness,
+        envMapIntensity: materialSettings.envMapIntensity,
+        clearcoat: materialSettings.clearcoat,
+        clearcoatRoughness: materialSettings.clearcoatRoughness,
+        side: THREE.DoubleSide,
+        toneMapped: true
+      });
+      
+      // If there are no side colors, return the default material
+      if (!sides || Object.keys(sides).length === 0) {
+        return [defaultMaterial, defaultMaterial, defaultMaterial, 
+                defaultMaterial, defaultMaterial, defaultMaterial];
+      }
+      
+      // Define the face indices in Three.js order
+      // 0: right (+X), 1: left (-X), 2: top (+Y), 3: bottom (-Y), 4: front (+Z), 5: back (-Z)
+      const faceToIndex = {
+        'right': 0,
+        'left': 1,
+        'top': 2,
+        'bottom': 3,
+        'front': 4,
+        'back': 5
+      };
+      
+      // Create an array of 6 default materials
+      const cubeMaterials = Array(6).fill().map(() => defaultMaterial.clone());
+      
+      // Apply accent color to faces with custom colors
+      Object.entries(sides).forEach(([face, colorType]) => {
+        if (colorType === 'b' && Object.prototype.hasOwnProperty.call(faceToIndex, face)) {
+          const materialIndex = faceToIndex[face];
+          cubeMaterials[materialIndex] = new THREE.MeshPhysicalMaterial({
+            color: finalValues.accentColor,
+            roughness: materialSettings.roughness,
+            metalness: materialSettings.metalness,
+            envMapIntensity: materialSettings.envMapIntensity,
+            clearcoat: materialSettings.clearcoat,
+            clearcoatRoughness: materialSettings.clearcoatRoughness,
+            side: THREE.DoubleSide,
+            toneMapped: true
+          });
+        }
+      });
+      
+      return cubeMaterials;
+    });
+  }, [cubePositions, finalValues.mainColor, finalValues.accentColor, materialSettings]);
+  
+  // References to store all cube meshes for direct manipulation during animation
+  const meshRefs = useRef([]);
   
   return (
     <group 
@@ -398,23 +421,26 @@ export function LogoCube({
         (useStoreConfig ? storePosition.y : 0) + (props.position?.[1] || 0),
         (useStoreConfig ? storePosition.z : 0) + (props.position?.[2] || 0)
       ]}
+      ref={groupRef}
     >
-      <Instances limit={125} count={cubePositions.length} ref={groupRef} castShadow receiveShadow>
-        <boxGeometry args={[finalValues.cubeSize, finalValues.cubeSize, finalValues.cubeSize]} />
-        <meshPhysicalMaterial 
-          color={finalValues.mainColor} 
-          roughness={materialSettings.roughness}
-          metalness={materialSettings.metalness}
-          envMapIntensity={materialSettings.envMapIntensity}
-          clearcoat={materialSettings.clearcoat}
-          clearcoatRoughness={materialSettings.clearcoatRoughness}
-          side={THREE.DoubleSide}
-          toneMapped={true}
-        />
-        {cubePositions.map((cube) => (
-          <Instance key={cube.id} />
-        ))}
-      </Instances>
+      {/* Render individual meshes with their own materials */}
+      {cubePositions.map((cube, index) => {
+        const [worldX, worldY, worldZ] = cube.position;
+        return (
+          <mesh 
+            key={cube.id}
+            ref={meshRefs.current[index]}
+            position={[worldX, worldY, worldZ]}
+            castShadow 
+            receiveShadow
+          >
+            <boxGeometry args={[finalValues.cubeSize, finalValues.cubeSize, finalValues.cubeSize]} />
+            {materials[index].map((material, matIndex) => (
+              <primitive key={`${cube.id}-mat-${matIndex}`} object={material} attach={`material-${matIndex}`} />
+            ))}
+          </mesh>
+        );
+      })}
     </group>
   )
 }
@@ -434,6 +460,7 @@ export function LogoCubeWithControls(props) {
       options: ['none', 'wave', 'breathe', 'twist', 'scatter', 'falling', 'disconnect', 'assembly']
     },
     interactionFactor: { value: 0.3, min: 0, max: 2, step: 0.1 },
+    rippleInteractionFactor: { value: 0.5, min: 0, max: 2, step: 0.1 },
     useStore: false,
     materialSettings: useControls('Material Settings', {
       roughness: { value: 0.3, min: 0, max: 1, step: 0.01 },
@@ -468,6 +495,9 @@ export function LogoCubeWithStore({ gridSize, fadeDistance, ...props }) {
   const animationType = useLogoCubeStore(state => state.animation.type)
   const animationSpeed = useLogoCubeStore(state => state.animation.speed)
   const interactionFactor = useLogoCubeStore(state => state.animation.interactionFactor)
+  const rippleInteractionFactor = useLogoCubeStore(state => {
+    return state.animation.rippleInteractionFactor !== undefined ? state.animation.rippleInteractionFactor : 0.5
+  })
   
   return (
     <LogoCube 
@@ -479,6 +509,7 @@ export function LogoCubeWithStore({ gridSize, fadeDistance, ...props }) {
       animationType={animationType}
       animationSpeed={animationSpeed}
       interactionFactor={interactionFactor}
+      rippleInteractionFactor={rippleInteractionFactor}
       useStoreConfig={true}
       gridSize={gridSize}
       fadeDistance={fadeDistance}

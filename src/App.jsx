@@ -5,6 +5,7 @@ import Experience from './Experience'
 import DesignerExperience from './DesignerExperience'
 import LogoControls from './components/ui/LogoControls'
 import './App.css'
+import { loadCachedPattern } from './utils/patternLoader'
 
 export default function App() {
   const [isDesignerMode, setIsDesignerMode] = useState(false)
@@ -26,6 +27,11 @@ export default function App() {
     return () => {
       window.removeEventListener('resize', calculatePosition)
     }
+  }, [])
+  
+  // Try to load cached pattern on mount
+  useEffect(() => {
+    loadCachedPattern()
   }, [])
   
   // Create custom theme and position for Leva panel

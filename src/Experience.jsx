@@ -4,6 +4,7 @@ import { LogoCubeWithStore } from './components/three/LogoCube'
 import useLogoCubeStore from './store/logoCubeStore'
 import { useControls, button } from 'leva'
 import KeyboardControl from './KeyboardControl'
+import { loadPattern as patternLoader, loadCachedPattern, hasCachedPattern } from './utils/patternLoader'
 
 
 // Colors palette 
@@ -179,8 +180,14 @@ export default function Experience() {
     
     const store = useLogoCubeStore.getState()
     
-    // Initialize with GNS logo pattern by default
-    store.initializeGNSLogo();
+    // Try to load cached pattern first
+    const hasCache = hasCachedPattern();
+    const patternLoaded = hasCache && loadCachedPattern();
+    
+    // If no cached pattern, initialize with GNS logo pattern by default
+    if (!patternLoaded) {
+      store.initializeGNSLogo();
+    }
     
     // Set default animation values if coming from designer mode
     if (store.animation.type === 'none') {
@@ -227,36 +234,9 @@ export default function Experience() {
       reader.onload = (event) => {
         try {
           console.log("Animation mode: Loading pattern file:", file.name);
-          const content = event.target.result;
-          const data = JSON.parse(content);
-          console.log("Animation mode: Pattern data parsed:", data);
-          
-          // Try different loading approaches (failover strategy)
-          let success = false;
-          
-          // Try full config import first
-          if (data.pattern || data.visual) {
-            console.log("Animation mode: Attempting to load as full config");
-            success = useLogoCubeStore.getState().importFullConfig(data);
-          }
-          
-          // If that fails, try direct pattern load
-          if (!success && (data.cubes || Array.isArray(data))) {
-            console.log("Animation mode: Attempting to load as pattern only");
-            success = useLogoCubeStore.getState().loadPattern(data);
-          }
-          
-          if (success) {
-            console.log("Animation mode: Pattern loaded successfully");
-          } else {
-            throw new Error("Failed to load pattern: Unknown format");
-          }
+          patternLoader(event.target.result);
         } catch (error) {
           console.error("Animation mode: Error loading pattern:", error);
-          console.error("Content:", event.target.result.substring(0, 500) + '...');
-          window.dispatchEvent(new CustomEvent('patternloaderror', { 
-            detail: { error } 
-          }));
         }
       };
       reader.readAsText(file);

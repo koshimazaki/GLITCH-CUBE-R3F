@@ -8,6 +8,7 @@ import useLogoCubeStore from './store/logoCubeStore'
 import './DesignerExperience.css'
 import KeyboardControl from './KeyboardControl'
 import DesignerControls from './components/ui/DesignerControls'
+import { gridToWorld } from './utils/coordinateUtils'
 
 // Interactive Cube component for clicking
 const InteractiveCubeGrid = ({ size = 5, cubeSize = 0.8, gap = 0.2 }) => {
@@ -16,9 +17,6 @@ const InteractiveCubeGrid = ({ size = 5, cubeSize = 0.8, gap = 0.2 }) => {
   const [currentPosition, setCurrentPosition] = useState([Math.floor(size/2), Math.floor(size/2), Math.floor(size/2)])
   const [selectedCube, setSelectedCube] = useState(null)
   const [selectedSideIndex, setSelectedSideIndex] = useState(0)
-  
-  // Calculate the offset for positioning
-  const offset = (size - 1) / 2
   
   // Create a reference to the group containing all the invisible hit boxes
   const groupRef = useRef()
@@ -211,10 +209,8 @@ const InteractiveCubeGrid = ({ size = 5, cubeSize = 0.8, gap = 0.2 }) => {
   for (let x = 0; x < size; x++) {
     for (let y = 0; y < size; y++) {
       for (let z = 0; z < size; z++) {
-        // Calculate world position
-        const worldX = (x - offset) * (cubeSize + gap)
-        const worldY = (y - offset) * (cubeSize + gap)
-        const worldZ = (z - offset) * (cubeSize + gap)
+        // Use utility function for coordinate transformation
+        const [worldX, worldY, worldZ] = gridToWorld(x, y, z, size, cubeSize, gap)
         
         const key = `${x},${y},${z}`
         

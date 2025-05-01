@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
 import useLogoCubeStore from '../../store/logoCubeStore'
+import { gridToWorld } from '../../utils/coordinateUtils'
 
 // Tracking to avoid duplicate material creation
 const processedCubes = new Set()
@@ -88,14 +89,8 @@ export function CubeWithTextures({ coordinates, wireframe, mainColor, accentColo
   // If cube isn't visible, don't render anything
   if (!cubeData || !cubeData.visible) return null
   
-  // Calculate position based on size/gap
-  const offset = (gridSize - 1) / 2 // Dynamic calculation based on grid size
-  
-  // Calculate the world position - be explicit about coordinate mapping
-  // In Three.js: X is right/left, Y is up/down, Z is forward/backward
-  const worldX = (x - offset) * (size + gap) // X corresponds to left/right
-  const worldY = (y - offset) * (size + gap) // Y corresponds to up/down
-  const worldZ = (z - offset) * (size + gap) // Z corresponds to forward/backward
+  // Use the utility function to calculate world position
+  const [worldX, worldY, worldZ] = gridToWorld(x, y, z, gridSize, size, gap)
   
   // Log position for debugging
   if (!processedCubes.has(`position-${key}`)) {

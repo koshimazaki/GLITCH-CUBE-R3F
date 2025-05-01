@@ -3,6 +3,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import useLogoCubeStore from '../../store/logoCubeStore'
 import ColorPickerInput from './ColorPickerInput'
 import './LogoControls.css'
+import { loadPattern as patternLoader, setErrorListenerFlag } from '../../utils/patternLoader'
 
 /**
  * CameraControls - Controls for manipulating the camera view
@@ -178,14 +179,21 @@ export function LogoControls() {
   // const initializeCustomPattern = useCallback((patternFunc) => {
   //   useLogoCubeStore.getState().initializeCustomPattern(patternFunc)
   // }, [])
-  const loadPattern = useLogoCubeStore(state => state.loadPattern)
   const setAnimationType = useLogoCubeStore(state => state.setAnimationType)
   const setAnimationSpeed = useLogoCubeStore(state => state.setAnimationSpeed)
   const setInteractionFactor = useLogoCubeStore(state => state.setInteractionFactor)
+  const setRippleInteractionFactor = useLogoCubeStore(state => state.setRippleInteractionFactor)
   const setAnimationDelay = useLogoCubeStore(state => state.setAnimationDelay)
   const setColor = useLogoCubeStore(state => state.setColor)
   const setCubeSize = useLogoCubeStore(state => state.setCubeSize)
   const setGap = useLogoCubeStore(state => state.setGap)
+  
+  // Handle ripple interaction factor changes
+  const handleRippleInteractionFactorChange = useCallback((e) => {
+    const value = parseFloat(e.target.value);
+    // Use the proper setter method for ripple interaction
+    setRippleInteractionFactor(value);
+  }, [setRippleInteractionFactor]);
   
   // Get additional actions from store
   const exportFullConfig = useLogoCubeStore(state => state.exportFullConfig)
@@ -202,6 +210,46 @@ export function LogoControls() {
     setCurrentPattern(pattern)
   }, [])
   
+  // Track pattern load error listeners
+  useEffect(() => {
+    // Set flag to prevent duplicate error alerts
+    const cleanup = setErrorListenerFlag();
+    
+    // Add listeners for pattern load success/error
+    const handleSuccess = () => {
+      // Update pattern name in UI
+      setCurrentPattern('custom');
+      
+      // Update UI state to match store
+      const store = useLogoCubeStore.getState();
+      
+      // Update the animation type dropdown
+      if (store.animation && store.animation.type) {
+        setAnimationType(store.animation.type);
+      }
+      
+      // Update color inputs
+      if (store.visual && store.visual.colors) {
+        if (store.visual.colors.a) {
+          setColor(store.visual.colors.a);
+        }
+      }
+    };
+    
+    const handleError = (event) => {
+      console.error("Pattern load error in LogoControls:", event.detail.error);
+    };
+    
+    window.addEventListener('patternloadsuccess', handleSuccess);
+    window.addEventListener('patternloaderror', handleError);
+    
+    return () => {
+      cleanup();
+      window.removeEventListener('patternloadsuccess', handleSuccess);
+      window.removeEventListener('patternloaderror', handleError);
+    };
+  }, [setAnimationType, setColor]);
+  
   // Handle loading a custom JSON pattern
   const handleFileChange = useCallback((e) => {
     const file = e.target.files[0]
@@ -210,29 +258,11 @@ export function LogoControls() {
     const reader = new FileReader()
     reader.onload = (event) => {
       try {
-        const pattern = JSON.parse(event.target.result)
-        
-        // Clear existing pattern
-        const visibleCubes = new Map()
-        
-        // Process the pattern data
-        pattern.forEach(cube => {
-          if (typeof cube.x === 'number' && 
-              typeof cube.y === 'number' && 
-              typeof cube.z === 'number') {
-            visibleCubes.set(`${cube.x},${cube.y},${cube.z}`, 1)
-          }
-        })
-        
-        // Update the store
-        loadPattern(visibleCubes)
-        
-        // Update the pattern name
-        setCurrentPattern('custom')
-        
+        // Use our utility for consistent pattern loading
+        patternLoader(event.target.result);
+        setCurrentPattern('custom');
       } catch (error) {
         console.error("Error loading pattern:", error)
-        alert("Failed to load pattern: Invalid JSON format")
       }
     }
     
@@ -240,7 +270,7 @@ export function LogoControls() {
     
     // Reset the file input so the same file can be loaded again
     e.target.value = null
-  }, [loadPattern])
+  }, [])
   
   // Handle animation type change
   const handleAnimationTypeChange = useCallback((e) => {
@@ -407,7 +437,7 @@ export function LogoControls() {
       </div>
       
       <div className="control-group">
-        <label htmlFor="interactionFactor">Interaction:</label>
+        <label htmlFor="interactionFactor">Direct Interaction:</label>
         <input 
           type="range" 
           id="interactionFactor" 
@@ -418,6 +448,20 @@ export function LogoControls() {
           onChange={handleInteractionFactorChange} 
         />
         <span>{animation.interactionFactor.toFixed(1)}</span>
+      </div>
+      
+      <div className="control-group">
+        <label htmlFor="rippleInteractionFactor">Ripple Effect:</label>
+        <input 
+          type="range" 
+          id="rippleInteractionFactor" 
+          min="0" 
+          max="2" 
+          step="0.1" 
+          value={animation.rippleInteractionFactor !== undefined ? animation.rippleInteractionFactor : 0.5} 
+          onChange={handleRippleInteractionFactorChange} 
+        />
+        <span>{(animation.rippleInteractionFactor !== undefined ? animation.rippleInteractionFactor : 0.5).toFixed(1)}</span>
       </div>
       
       <div className="control-group">
@@ -437,7 +481,7 @@ export function LogoControls() {
       <div className="control-group">
         <ColorPickerInput 
           label="Color"
-          value={visual.color}
+          value={visual.colors?.a || '#fc0398'}
           onChange={setColor}
         />
       </div>

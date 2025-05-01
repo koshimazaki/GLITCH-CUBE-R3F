@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useEffect } from 'react'
 import useLogoCubeStore from '../../store/logoCubeStore'
 import ColorPickerInput from './ColorPickerInput'
 import './DesignerControls.css'
@@ -6,6 +6,7 @@ import Accordion from '@mui/material/Accordion'
 import AccordionSummary from '@mui/material/AccordionSummary'
 import AccordionDetails from '@mui/material/AccordionDetails'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import { loadPattern as patternLoader, setErrorListenerFlag } from '../../utils/patternLoader'
 
 const DesignerControls = ({ 
   debugOptions, 
@@ -42,7 +43,37 @@ const DesignerControls = ({
       fileInputRef.current.click()
     }
   }
-  
+
+  // Add listeners for pattern loading events
+  useEffect(() => {
+    // Set flag to prevent duplicate error alerts
+    const cleanup = setErrorListenerFlag();
+    
+    // Add listeners for pattern load success/error
+    const handleSuccess = (event) => {
+      // Set the pattern name to something meaningful
+      const pattern = event.detail?.pattern;
+      if (pattern && pattern.meta && pattern.meta.patternName) {
+        setPatternName(pattern.meta.patternName);
+      } else {
+        setPatternName('custom');
+      }
+    };
+    
+    const handleError = (event) => {
+      console.error("Pattern load error in DesignerControls:", event.detail.error);
+    };
+    
+    window.addEventListener('patternloadsuccess', handleSuccess);
+    window.addEventListener('patternloaderror', handleError);
+    
+    return () => {
+      cleanup();
+      window.removeEventListener('patternloadsuccess', handleSuccess);
+      window.removeEventListener('patternloaderror', handleError);
+    };
+  }, [setPatternName]);
+
   const handleFileChange = (e) => {
     const file = e.target.files[0]
     if (!file) return
@@ -51,88 +82,9 @@ const DesignerControls = ({
     reader.onload = (event) => {
       try {
         console.log("Loading pattern file:", file.name)
-        const patternData = JSON.parse(event.target.result)
-        console.log("Pattern data parsed:", patternData)
         
-        // Check if the pattern is in the new format (with cubes and colors)
-        if (patternData.cubes && Array.isArray(patternData.cubes)) {
-          console.log("Detected new pattern format with cubes array")
-          // Process the new format pattern
-          const visibleCubes = new Map()
-          
-          patternData.cubes.forEach((cube, index) => {
-            if (typeof cube.x === 'number' && 
-                typeof cube.y === 'number' && 
-                typeof cube.z === 'number') {
-              
-              // Process sides information
-              const sides = {}
-              if (Array.isArray(cube.sides)) {
-                console.log(`Processing sides for cube ${index}:`, cube.sides)
-                cube.sides.forEach(side => {
-                  if (side.face && side.color) {
-                    sides[side.face] = side.color
-                  }
-                })
-              }
-              
-              console.log(`Adding cube at ${cube.x},${cube.y},${cube.z} with sides:`, sides)
-              visibleCubes.set(`${cube.x},${cube.y},${cube.z}`, { visible: true, sides })
-            } else {
-              console.warn(`Invalid cube coordinates at index ${index}:`, cube)
-            }
-          })
-          
-          // Update the store
-          console.log("Updating store with pattern:", visibleCubes)
-          logoCubeStore.loadPattern(visibleCubes)
-          
-          // Update colors if present
-          if (patternData.colors) {
-            console.log("Setting colors from pattern:", patternData.colors)
-            if (patternData.colors.a) {
-              handleMainColorChange(patternData.colors.a)
-            }
-            if (patternData.colors.b) {
-              handleAccentColorChange(patternData.colors.b)
-            }
-          }
-          
-        } else if (Array.isArray(patternData)) {
-          console.log("Detected legacy pattern format (array)")
-          // Handle legacy format (simple array of cubes)
-          const visibleCubes = new Map()
-          
-          patternData.forEach((cube, index) => {
-            if (typeof cube.x === 'number' && 
-                typeof cube.y === 'number' && 
-                typeof cube.z === 'number') {
-              
-              // Process sides if they exist
-              const sides = {}
-              if (Array.isArray(cube.sides)) {
-                console.log(`Processing sides for legacy cube ${index}:`, cube.sides)
-                cube.sides.forEach(side => {
-                  if (side.face && side.color) {
-                    sides[side.face] = side.color
-                  }
-                })
-              }
-              
-              console.log(`Adding legacy cube at ${cube.x},${cube.y},${cube.z} with sides:`, sides)
-              visibleCubes.set(`${cube.x},${cube.y},${cube.z}`, { visible: true, sides })
-            } else {
-              console.warn(`Invalid cube coordinates at index ${index}:`, cube)
-            }
-          })
-          
-          // Update the store
-          console.log("Updating store with legacy pattern:", visibleCubes)
-          logoCubeStore.loadPattern(visibleCubes)
-        } else {
-          console.error("Unrecognized pattern format:", patternData)
-          throw new Error("Unrecognized pattern format")
-        }
+        // Use our standardized pattern loader
+        patternLoader(event.target.result);
         
         // Set the pattern name to the filename without extension
         const filename = file.name.replace(/\.[^/.]+$/, "")
@@ -140,8 +92,6 @@ const DesignerControls = ({
         
       } catch (error) {
         console.error("Error loading pattern:", error)
-        console.error("File content:", event.target.result)
-        alert(`Failed to load pattern: ${error.message}`)
       }
     }
     

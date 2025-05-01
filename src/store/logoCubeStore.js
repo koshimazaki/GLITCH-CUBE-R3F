@@ -604,6 +604,11 @@ export const useLogoCubeStore = create((set, get) => ({
     animation: { ...state.animation, interactionFactor } 
   })),
   
+  // Set ripple interaction factor
+  setRippleInteractionFactor: (rippleInteractionFactor) => set(state => ({ 
+    animation: { ...state.animation, rippleInteractionFactor } 
+  })),
+  
   // Set animation delay (for staggered animations)
   setAnimationDelay: (delay) => set(state => ({ animation: { ...state.animation, delay } })),
   

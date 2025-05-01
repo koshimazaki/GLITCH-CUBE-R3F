@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { Text } from '@react-three/drei'
 import * as THREE from 'three'
 import useLogoCubeStore from '../../store/logoCubeStore'
+import { gridToWorld } from '../../utils/coordinateUtils'
 
 /**
  * CoordinateLabels - Renders text labels with coordinates for each cube in the grid
@@ -191,7 +192,6 @@ export function TexturedLogoCube({
 }) {
   // Get visible cubes from store
   const visibleCubes = useLogoCubeStore(state => state.visibleCubes)
-  const offset = (size - 1) / 2
   
   // Generate visible cube positions
   const cubes = useMemo(() => {
@@ -210,10 +210,8 @@ export function TexturedLogoCube({
           // Get cube data (including side colors)
           const cubeData = visibleCubes.get(key)
           
-          // Calculate world position
-          const worldX = (x - offset) * (cubeSize + gap)
-          const worldY = (y - offset) * (cubeSize + gap)
-          const worldZ = (z - offset) * (cubeSize + gap)
+          // Use the utility function to calculate world position
+          const [worldX, worldY, worldZ] = gridToWorld(x, y, z, size, cubeSize, gap)
           
           cubeList.push({
             id: key,
@@ -226,7 +224,7 @@ export function TexturedLogoCube({
     }
     
     return cubeList
-  }, [size, cubeSize, gap, visibleCubes, offset])
+  }, [size, cubeSize, gap, visibleCubes])
   
   return (
     <group {...props}>
@@ -264,13 +262,9 @@ export function CubeHighlighter({
     return null
   }
   
-  // Calculate world position
+  // Calculate world position using utility function
   const [x, y, z] = coordinates
-  const offset = (size - 1) / 2
-  
-  const worldX = (x - offset) * (cubeSize + gap)
-  const worldY = (y - offset) * (cubeSize + gap)
-  const worldZ = (z - offset) * (cubeSize + gap)
+  const [worldX, worldY, worldZ] = gridToWorld(x, y, z, size, cubeSize, gap)
   
   return (
     <lineSegments {...props} position={[worldX, worldY, worldZ]}>
