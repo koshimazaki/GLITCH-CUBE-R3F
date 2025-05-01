@@ -12,7 +12,7 @@ export function LogoCube({
   size = 5,
   cubeSize = 0.8,
   gap = 0.2,
-  color = '#fc0398',
+  color = '#ffffff',
   animationSpeed = 1,
   animationType = 'wave',
   interactionFactor = 0.3,
@@ -133,6 +133,7 @@ export function LogoCube({
       })
       
       groupRef.current.instanceMatrix.needsUpdate = true
+      groupRef.current.count = cubePositions.length // Set count to match actual visible cubes
     }
   }, [cubePositions, tempObject])
   
@@ -399,7 +400,7 @@ export function LogoCube({
  */
 export function LogoCubeWithControls(props) {
   const controls = useControls('Logo Cube', {
-    color: '#fc0398',
+    color: '#ffffff',
     cubeSize: { value: 0.8, min: 0.1, max: 1, step: 0.01 },
     gap: { value: 0.2, min: 0, max: 1, step: 0.01 },
     animationSpeed: { value: 1, min: 0, max: 5, step: 0.1 },

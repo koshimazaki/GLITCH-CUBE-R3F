@@ -62,6 +62,7 @@
   align-items: center;
   position: relative;
   gap: 8px;
+  padding: 0px;
 }
 
 .color-picker-input input[type="color"] {
@@ -77,15 +78,19 @@
 }
 
 .color-picker-input input[type="color"]::-webkit-color-swatch-wrapper {
-  padding: 0;
-  border-radius: 4px;
+  padding: 0px;
+  border-radius: 10px;
   border: 1px solid #ccc;
 }
 
 .color-picker-input input[type="color"]::-webkit-color-swatch {
   border: none;
-  border-radius: 4px;
+  border-radius: 10px;
+  padding: 0px;
 }
+
+
+
 
 .color-value {
   font-family: monospace;

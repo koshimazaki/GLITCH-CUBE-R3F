@@ -472,13 +472,13 @@ const DesignerExperience = () => {
         
         <h3>Appearance</h3>
         <ColorPickerInput 
-          label="Cube Color" 
+          label="Cube" 
           value={cubeColor} 
           onChange={handleCubeColorChange} 
         />
         
         <ColorPickerInput 
-          label="Text Color" 
+          label="Text" 
           value={textColor} 
           onChange={setTextColor} 
         />

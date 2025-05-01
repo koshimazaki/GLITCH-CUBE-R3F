@@ -176,7 +176,7 @@ export const useLogoCubeStore = create((set, get) => ({
   
   // Visual properties
   visual: {
-    color: '#fc0398',
+    color: '#ffffff',
     cubeSize: 0.8,
     gap: 0.2,
   },
