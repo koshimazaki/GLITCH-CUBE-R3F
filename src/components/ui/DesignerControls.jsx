@@ -12,9 +12,11 @@ const DesignerControls = ({
   handleDebugToggle, 
   patternName, 
   setPatternName, 
-  cubeColor, 
+  mainColor, 
+  accentColor,
   textColor, 
-  handleCubeColorChange, 
+  handleMainColorChange, 
+  handleAccentColorChange,
   setTextColor, 
   cameraControls, 
   toggleAutoRotate,
@@ -48,22 +50,89 @@ const DesignerControls = ({
     const reader = new FileReader()
     reader.onload = (event) => {
       try {
-        const pattern = JSON.parse(event.target.result)
+        console.log("Loading pattern file:", file.name)
+        const patternData = JSON.parse(event.target.result)
+        console.log("Pattern data parsed:", patternData)
         
-        // Clear existing pattern
-        const visibleCubes = new Map()
-        
-        // Process the pattern data
-        pattern.forEach(cube => {
-          if (typeof cube.x === 'number' && 
-              typeof cube.y === 'number' && 
-              typeof cube.z === 'number') {
-            visibleCubes.set(`${cube.x},${cube.y},${cube.z}`, 1)
+        // Check if the pattern is in the new format (with cubes and colors)
+        if (patternData.cubes && Array.isArray(patternData.cubes)) {
+          console.log("Detected new pattern format with cubes array")
+          // Process the new format pattern
+          const visibleCubes = new Map()
+          
+          patternData.cubes.forEach((cube, index) => {
+            if (typeof cube.x === 'number' && 
+                typeof cube.y === 'number' && 
+                typeof cube.z === 'number') {
+              
+              // Process sides information
+              const sides = {}
+              if (Array.isArray(cube.sides)) {
+                console.log(`Processing sides for cube ${index}:`, cube.sides)
+                cube.sides.forEach(side => {
+                  if (side.face && side.color) {
+                    sides[side.face] = side.color
+                  }
+                })
+              }
+              
+              console.log(`Adding cube at ${cube.x},${cube.y},${cube.z} with sides:`, sides)
+              visibleCubes.set(`${cube.x},${cube.y},${cube.z}`, { visible: true, sides })
+            } else {
+              console.warn(`Invalid cube coordinates at index ${index}:`, cube)
+            }
+          })
+          
+          // Update the store
+          console.log("Updating store with pattern:", visibleCubes)
+          logoCubeStore.loadPattern(visibleCubes)
+          
+          // Update colors if present
+          if (patternData.colors) {
+            console.log("Setting colors from pattern:", patternData.colors)
+            if (patternData.colors.a) {
+              handleMainColorChange(patternData.colors.a)
+            }
+            if (patternData.colors.b) {
+              handleAccentColorChange(patternData.colors.b)
+            }
           }
-        })
-        
-        // Update the store
-        logoCubeStore.loadPattern(visibleCubes)
+          
+        } else if (Array.isArray(patternData)) {
+          console.log("Detected legacy pattern format (array)")
+          // Handle legacy format (simple array of cubes)
+          const visibleCubes = new Map()
+          
+          patternData.forEach((cube, index) => {
+            if (typeof cube.x === 'number' && 
+                typeof cube.y === 'number' && 
+                typeof cube.z === 'number') {
+              
+              // Process sides if they exist
+              const sides = {}
+              if (Array.isArray(cube.sides)) {
+                console.log(`Processing sides for legacy cube ${index}:`, cube.sides)
+                cube.sides.forEach(side => {
+                  if (side.face && side.color) {
+                    sides[side.face] = side.color
+                  }
+                })
+              }
+              
+              console.log(`Adding legacy cube at ${cube.x},${cube.y},${cube.z} with sides:`, sides)
+              visibleCubes.set(`${cube.x},${cube.y},${cube.z}`, { visible: true, sides })
+            } else {
+              console.warn(`Invalid cube coordinates at index ${index}:`, cube)
+            }
+          })
+          
+          // Update the store
+          console.log("Updating store with legacy pattern:", visibleCubes)
+          logoCubeStore.loadPattern(visibleCubes)
+        } else {
+          console.error("Unrecognized pattern format:", patternData)
+          throw new Error("Unrecognized pattern format")
+        }
         
         // Set the pattern name to the filename without extension
         const filename = file.name.replace(/\.[^/.]+$/, "")
@@ -71,7 +140,8 @@ const DesignerControls = ({
         
       } catch (error) {
         console.error("Error loading pattern:", error)
-        alert("Failed to load pattern: Invalid JSON format")
+        console.error("File content:", event.target.result)
+        alert(`Failed to load pattern: ${error.message}`)
       }
     }
     
@@ -82,11 +152,7 @@ const DesignerControls = ({
   }
 
   const handleSavePattern = () => {
-    const visibleCubes = Array.from(logoCubeStore.visibleCubes.keys()).map(key => {
-      const [x, y, z] = key.split(',').map(Number)
-      return { x, y, z }
-    })
-    const json = JSON.stringify(visibleCubes, null, 2)
+    const json = JSON.stringify(logoCubeStore.exportPattern(), null, 2)
     
     // Create a downloadable file
     const blob = new Blob([json], { type: 'application/json' })
@@ -131,21 +197,117 @@ const DesignerControls = ({
     const reader = new FileReader()
     reader.onload = (event) => {
       try {
+        console.log("Reading config file:", file.name)
         const config = JSON.parse(event.target.result)
-        const success = logoCubeStore.importFullConfig(config)
+        console.log("Parsed config:", config)
         
-        if (success) {
-          // Update UI state to match the imported config
-          setPatternName(config.meta?.patternName || 'custom')
-          handleCubeColorChange(config.visual?.color || '#fc0398')
-          // Show success message
-          alert('Configuration imported successfully!')
+        // Print the structure to help debug
+        if (config.pattern && config.pattern.cubes) {
+          console.log("Found pattern.cubes with length:", config.pattern.cubes.length)
+        } else if (config.cubes) {
+          console.log("Found top-level cubes with length:", config.cubes.length)
+        }
+        
+        // Handle both formats - full config with pattern field or direct cubes array
+        if (config.pattern && config.pattern.cubes) {
+          // This is the full configuration format
+          const success = logoCubeStore.importFullConfig(config)
+          
+          if (success) {
+            // Update UI with the imported data
+            setPatternName(config.meta?.patternName || 'custom')
+            
+            if (config.visual?.colors?.a) {
+              handleMainColorChange(config.visual.colors.a)
+            }
+            
+            if (config.visual?.colors?.b) {
+              handleAccentColorChange(config.visual.colors.b)
+            }
+            
+            alert('Configuration imported successfully!')
+          } else {
+            alert('Failed to import configuration. See console for details.')
+          }
+        } else if (config.cubes && Array.isArray(config.cubes)) {
+          // This is a pattern-only file with the new format
+          const visibleCubes = new Map()
+          
+          config.cubes.forEach(cube => {
+            if (typeof cube.x === 'number' && 
+                typeof cube.y === 'number' && 
+                typeof cube.z === 'number') {
+              
+              // Process sides information
+              const sides = {}
+              if (Array.isArray(cube.sides)) {
+                cube.sides.forEach(side => {
+                  if (side.face && side.color) {
+                    sides[side.face] = side.color
+                  }
+                })
+              }
+              
+              visibleCubes.set(`${cube.x},${cube.y},${cube.z}`, { visible: true, sides })
+            }
+          })
+          
+          // Update the store
+          logoCubeStore.loadPattern(visibleCubes)
+          
+          // Update colors if present
+          if (config.colors) {
+            if (config.colors.a) {
+              handleMainColorChange(config.colors.a)
+            }
+            
+            if (config.colors.b) {
+              handleAccentColorChange(config.colors.b)
+            }
+          }
+          
+          // Update pattern name
+          setPatternName(file.name.replace(/\.[^/.]+$/, "") || 'custom')
+          
+          alert('Pattern imported successfully!')
+        } else if (Array.isArray(config)) {
+          // Legacy format (plain array of coordinates)
+          const visibleCubes = new Map()
+          
+          config.forEach(cube => {
+            if (typeof cube.x === 'number' && 
+                typeof cube.y === 'number' && 
+                typeof cube.z === 'number') {
+              
+              // Process sides if they exist
+              const sides = {}
+              if (Array.isArray(cube.sides)) {
+                cube.sides.forEach(side => {
+                  if (side.face && side.color) {
+                    sides[side.face] = side.color
+                  }
+                })
+              }
+              
+              visibleCubes.set(`${cube.x},${cube.y},${cube.z}`, { visible: true, sides })
+            }
+          })
+          
+          // Update the store
+          logoCubeStore.loadPattern(visibleCubes)
+          
+          // Update pattern name
+          setPatternName(file.name.replace(/\.[^/.]+$/, "") || 'custom')
+          
+          alert('Legacy pattern imported successfully!')
         } else {
-          alert('Failed to import configuration. Invalid format.')
+          console.error("Unrecognized data format:", config)
+          alert('Failed to import: Unrecognized data format')
         }
       } catch (error) {
         console.error("Error importing configuration:", error)
-        alert("Failed to import: Invalid JSON format")
+        console.error("File content:", event.target.result)
+        alert(`Failed to import: ${error.message}`)
       }
     }
     
@@ -185,9 +347,15 @@ const DesignerControls = ({
       
       <h3>Appearance</h3>
       <ColorPickerInput 
-        label="Cube" 
-        value={cubeColor} 
-        onChange={handleCubeColorChange} 
+        label="Main Color" 
+        value={mainColor} 
+        onChange={handleMainColorChange} 
+      />
+      
+      <ColorPickerInput 
+        label="Accent Color" 
+        value={accentColor} 
+        onChange={handleAccentColorChange} 
       />
       
       <ColorPickerInput 
@@ -258,44 +426,49 @@ const DesignerControls = ({
         />
       </div>
       
-      {/* Replace separate instruction sections with a single accordion */}
-      <Accordion sx={{ 
-        marginTop: '20px', 
-        boxShadow: '0 2px 6px rgba(0, 0, 0, 0.15)',
-        borderRadius: '4px',
-        '&:before': {
-          display: 'none',
-        }
-      }}>
-        <AccordionSummary
-          expandIcon={<ExpandMoreIcon />}
-          aria-controls="instructions-content"
-          id="instructions-header"
-          sx={{ 
-            backgroundColor: 'rgba(0, 0, 0, 0.05)',
-            borderRadius: '4px'
-          }}
-        >
-          <h3 style={{ margin: 0 }}>Instructions</h3>
+      <h3>Keyboard Controls</h3>
+      <div className="keyboard-controls">
+        <p><strong>W/S</strong> - Move cursor Up/Down (Y axis)</p>
+        <p><strong>A/D</strong> - Move cursor Left/Right (X axis)</p>
+        <p><strong>Q/E</strong> - Move cursor Back/Forward (Z)</p>
+        <p><strong>Space</strong> - Toggle cube visibility at cursor</p>
+        <p><strong>1-6</strong> - Apply accent color to specific face on selected cube</p>
+        <p><strong>Enter</strong> - Cycle through faces on selected cube</p>
+        <p><strong>C</strong> - Clear all accent colors from selected cube</p>
+        <p><strong>Escape</strong> - Deselect cube</p>
+      </div>
+      
+      <h3>Mouse Controls</h3>
+      <div className="mouse-controls">
+        <p><strong>Left Click</strong> - Select cube and toggle visibility (adds or removes cube)</p>
+        <p><strong>Right Click</strong> - Select cube, make it visible if not already, and cycle through faces to apply accent color</p>
+      </div>
+      
+      <Accordion>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <h3 style={{ margin: 0 }}>Camera Controls</h3>
         </AccordionSummary>
         <AccordionDetails>
-          <div>
-            <h4>Keyboard Controls</h4>
-            <div className="keyboard-controls">
-              <p><strong>W/S</strong> - Up/Down (Y axis)</p>
-              <p><strong>A/D</strong> - Left/Right (X axis)</p>
-              <p><strong>Q/E</strong> - Back/Forward (Z axis)</p>
-              <p><strong>Space</strong> - Toggle cube at cursor</p>
+          <div className="camera-controls">
+            <div className="camera-position-controls">
+              <button onClick={() => setCameraPosition('front')} className="camera-btn">Front</button>
+              <button onClick={() => setCameraPosition('back')} className="camera-btn">Back</button>
+              <button onClick={() => setCameraPosition('left')} className="camera-btn">Left</button>
+              <button onClick={() => setCameraPosition('right')} className="camera-btn">Right</button>
+              <button onClick={() => setCameraPosition('top')} className="camera-btn">Top</button>
+              <button onClick={() => setCameraPosition('bottom')} className="camera-btn">Bottom</button>
+              <button onClick={() => setCameraPosition('isometric')} className="camera-btn">Isometric</button>
             </div>
-            
-            <h4>Basic Usage</h4>
-            <p className="instruction-text">
-              Click to add or remove a cube.
-              Hover over to see a highlight.
-              Use keyboard to navigate the grid.
-            </p>
-            
-            <h4>Camera Controls</h4>
+            <div className="camera-rotation-controls">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={cameraControls.autoRotate}
+                  onChange={toggleAutoRotate}
+                />
+                Auto-Rotate
+              </label>
+            </div>
             <p className="camera-instructions">
               <strong>Interact with 3D view:</strong><br/>
               • <strong>Left-click + drag</strong>: Rotate view<br/>
@@ -306,28 +479,45 @@ const DesignerControls = ({
         </AccordionDetails>
       </Accordion>
       
-      <h3>Camera Controls</h3>
-      <div className="camera-controls">
-        <div className="camera-position-controls">
-          <button onClick={() => setCameraPosition('front')} className="camera-btn">Front</button>
-          <button onClick={() => setCameraPosition('back')} className="camera-btn">Back</button>
-          <button onClick={() => setCameraPosition('left')} className="camera-btn">Left</button>
-          <button onClick={() => setCameraPosition('right')} className="camera-btn">Right</button>
-          <button onClick={() => setCameraPosition('top')} className="camera-btn">Top</button>
-          <button onClick={() => setCameraPosition('bottom')} className="camera-btn">Bottom</button>
-          <button onClick={() => setCameraPosition('isometric')} className="camera-btn">Isometric</button>
-        </div>
-        <div className="camera-rotation-controls">
-          <label>
-            <input
-              type="checkbox"
-              checked={cameraControls.autoRotate}
-              onChange={toggleAutoRotate}
-            />
-            Auto-Rotate
-          </label>
-        </div>
-      </div>
+      <Accordion>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <h3 style={{ margin: 0 }}>Accent Color Instructions</h3>
+        </AccordionSummary>
+        <AccordionDetails>
+          <div className="accent-instructions">
+            <p>
+              The accent color feature allows you to add a second color to specific faces of each cube.
+            </p>
+            
+            <h4>Using Accent Colors:</h4>
+            <ol>
+              <li>First select a cube by left-clicking it. This will toggle the cube's visibility if not already present.</li>
+              <li>A selected cube will be highlighted in green.</li>
+              <li>Right-click on the selected cube to cycle through faces and apply the accent color to each face.</li>
+              <li>Alternatively, with a cube selected, use the number keys 1-6 to directly apply accent color to specific faces.</li>
+              <li>Press Enter to cycle through faces on the selected cube.</li>
+              <li>To clear all accent colors from a selected cube, press the 'C' key.</li>
+              <li>Press Escape to deselect the cube when finished.</li>
+            </ol>
+            
+            <div className="key-mapping">
+              <p><strong>1</strong> - Front face</p>
+              <p><strong>2</strong> - Back face</p>
+              <p><strong>3</strong> - Left face</p>
+              <p><strong>4</strong> - Right face</p>
+              <p><strong>5</strong> - Top face</p>
+              <p><strong>6</strong> - Bottom face</p>
+            </div>
+            
+            <h4>Export Format:</h4>
+            <p>
+              When you export your design, the pattern will include both colors. 
+              The exported JSON will list cubes with their positions and which faces 
+              have the accent color applied.
+            </p>
+          </div>
+        </AccordionDetails>
+      </Accordion>
     </div>
   )
 }

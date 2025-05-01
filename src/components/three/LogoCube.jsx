@@ -12,7 +12,8 @@ export function LogoCube({
   size = 5,
   cubeSize = 0.8,
   gap = 0.2,
-  color = '#ffffff',
+  mainColor = '#fc0398',
+  accentColor = '#333333',
   animationSpeed = 1,
   animationType = 'wave',
   interactionFactor = 0.3,
@@ -39,7 +40,7 @@ export function LogoCube({
   const storeSize = useLogoCubeStore(state => state.size)
   const storeVisualCubeSize = useLogoCubeStore(state => state.visual.cubeSize)
   const storeVisualGap = useLogoCubeStore(state => state.visual.gap)
-  const storeVisualColor = useLogoCubeStore(state => state.visual.color)
+  const storeVisualColors = useLogoCubeStore(state => state.visual.colors || { a: '#fc0398', b: '#333333' })
   const storeAnimationType = useLogoCubeStore(state => state.animation.type)
   const storeAnimationSpeed = useLogoCubeStore(state => state.animation.speed)
   const storeInteractionFactor = useLogoCubeStore(state => state.animation.interactionFactor)
@@ -52,7 +53,8 @@ export function LogoCube({
     size: useStoreConfig ? storeSize : size,
     cubeSize: useStoreConfig ? storeVisualCubeSize : cubeSize,
     gap: useStoreConfig ? storeVisualGap : gap,
-    color: useStoreConfig ? storeVisualColor : color,
+    mainColor: useStoreConfig ? storeVisualColors.a : mainColor,
+    accentColor: useStoreConfig ? storeVisualColors.b : accentColor,
     animationType: useStoreConfig ? storeAnimationType : animationType,
     animationSpeed: useStoreConfig ? storeAnimationSpeed : animationSpeed,
     interactionFactor: useStoreConfig ? storeInteractionFactor : interactionFactor,
@@ -60,8 +62,8 @@ export function LogoCube({
     delay: useStoreConfig ? (storeAnimationDelay || 0.1) : 0.1
   }), [
     useStoreConfig, 
-    size, cubeSize, gap, color, animationType, animationSpeed, interactionFactor,
-    storeSize, storeVisualCubeSize, storeVisualGap, storeVisualColor, 
+    size, cubeSize, gap, mainColor, accentColor, animationType, animationSpeed, interactionFactor,
+    storeSize, storeVisualCubeSize, storeVisualGap, storeVisualColors, 
     storeAnimationType, storeAnimationSpeed, storeInteractionFactor, storeAnimationDelay
   ])
   
@@ -72,8 +74,8 @@ export function LogoCube({
     
     // If using store configuration, use the visibleCubes map
     if (useStoreConfig) {
-      for (const [key, value] of storeVisibleCubes.entries()) {
-        if (value === 1) {
+      for (const [key, cubeData] of storeVisibleCubes.entries()) {
+        if (cubeData.visible) {
           const [x, y, z] = key.split(',').map(Number)
           
           // Convert from grid position to world position
@@ -85,6 +87,7 @@ export function LogoCube({
             id: key,
             position: [worldX, worldY, worldZ],
             gridPosition: [x, y, z],
+            sides: cubeData.sides || {}
           })
         }
       }
@@ -108,6 +111,7 @@ export function LogoCube({
                 id: `${x},${y},${z}`,
                 position: [worldX, worldY, worldZ],
                 gridPosition: [x, y, z],
+                sides: {}
               })
             }
           }
@@ -398,14 +402,14 @@ export function LogoCube({
       <Instances limit={125} count={cubePositions.length} ref={groupRef} castShadow receiveShadow>
         <boxGeometry args={[finalValues.cubeSize, finalValues.cubeSize, finalValues.cubeSize]} />
         <meshPhysicalMaterial 
-          color={finalValues.color} 
+          color={finalValues.mainColor} 
           roughness={materialSettings.roughness}
           metalness={materialSettings.metalness}
           envMapIntensity={materialSettings.envMapIntensity}
           clearcoat={materialSettings.clearcoat}
           clearcoatRoughness={materialSettings.clearcoatRoughness}
-          castShadow
-          receiveShadow
+          side={THREE.DoubleSide}
+          toneMapped={true}
         />
         {cubePositions.map((cube) => (
           <Instance key={cube.id} />
@@ -420,7 +424,8 @@ export function LogoCube({
  */
 export function LogoCubeWithControls(props) {
   const controls = useControls('Logo Cube', {
-    color: '#ffffff',
+    mainColor: '#fc0398',
+    accentColor: '#333333',
     cubeSize: { value: 0.8, min: 0.1, max: 1, step: 0.01 },
     gap: { value: 0.2, min: 0, max: 1, step: 0.01 },
     animationSpeed: { value: 1, min: 0, max: 5, step: 0.1 },
@@ -458,7 +463,8 @@ export function LogoCubeWithStore({ gridSize, fadeDistance, ...props }) {
   const size = useLogoCubeStore(state => state.size)
   const cubeSize = useLogoCubeStore(state => state.visual.cubeSize)
   const gap = useLogoCubeStore(state => state.visual.gap)
-  const color = useLogoCubeStore(state => state.visual.color)
+  const mainColor = useLogoCubeStore(state => state.visual.colors?.a || '#fc0398')
+  const accentColor = useLogoCubeStore(state => state.visual.colors?.b || '#333333')
   const animationType = useLogoCubeStore(state => state.animation.type)
   const animationSpeed = useLogoCubeStore(state => state.animation.speed)
   const interactionFactor = useLogoCubeStore(state => state.animation.interactionFactor)
@@ -468,7 +474,8 @@ export function LogoCubeWithStore({ gridSize, fadeDistance, ...props }) {
       size={size}
       cubeSize={cubeSize}
       gap={gap}
-      color={color}
+      mainColor={mainColor}
+      accentColor={accentColor}
       animationType={animationType}
       animationSpeed={animationSpeed}
       interactionFactor={interactionFactor}

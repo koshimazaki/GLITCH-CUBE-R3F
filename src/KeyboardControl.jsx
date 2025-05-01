@@ -10,6 +10,7 @@ import useLogoCubeStore from './store/logoCubeStore'
  * - QE: Movement along Y axis
  * - Arrow keys: Alternative movement
  * - Space: Toggle cube visibility in designer mode
+ * - 1-6: Toggle accent color on specific sides when a cube is selected
  */
 export default function KeyboardControl({ 
   gridSize = 5,
@@ -27,10 +28,13 @@ export default function KeyboardControl({
   
   // Update movement speed when it changes in the store
   useEffect(() => {
-    // Update from the store if available, otherwise use default
+    // Set initial value from store
+    moveSpeedRef.current = useLogoCubeStore.getState().moveSpeed || 0.1
+    
+    // Update from the store when it changes
     const unsubscribe = useLogoCubeStore.subscribe(
       state => {
-        // Check if moveSpeed exists in the store and update local ref
+        // Use moveSpeed from the store directly
         if (state.moveSpeed !== undefined) {
           moveSpeedRef.current = state.moveSpeed
         }
@@ -62,29 +66,32 @@ export default function KeyboardControl({
     
     // Move cube based on keys pressed
     const moveWithKeys = () => {
-      // Get current enableKeyboardControls value
-      const currentlyEnabled = useLogoCubeStore.getState().enableKeyboardControls
-      if (!currentlyEnabled) return
+      // Get current enableKeyboardControls value and current moveSpeed
+      const { enableKeyboardControls, moveSpeed } = useLogoCubeStore.getState()
+      if (!enableKeyboardControls) return
+      
+      // Use the store's moveSpeed directly, or the local ref as fallback
+      const speed = moveSpeed !== undefined ? moveSpeed : moveSpeedRef.current
       
       // Move based on which keys are pressed
       // Support both WASD and arrow keys
       if (keysPressed.has('w') || keysPressed.has('arrowup')) {
-        store.moveZ(-moveSpeedRef.current)
+        store.moveZ(-speed)
       }
       if (keysPressed.has('s') || keysPressed.has('arrowdown')) {
-        store.moveZ(moveSpeedRef.current)
+        store.moveZ(speed)
       }
       if (keysPressed.has('a') || keysPressed.has('arrowleft')) {
-        store.moveX(-moveSpeedRef.current)
+        store.moveX(-speed)
       }
       if (keysPressed.has('d') || keysPressed.has('arrowright')) {
-        store.moveX(moveSpeedRef.current)
+        store.moveX(speed)
       }
       if (keysPressed.has('q')) {
-        store.moveY(moveSpeedRef.current)
+        store.moveY(speed)
       }
       if (keysPressed.has('e')) {
-        store.moveY(-moveSpeedRef.current)
+        store.moveY(-speed)
       }
       
       // Continue moving if keys are still pressed
@@ -112,9 +119,21 @@ export default function KeyboardControl({
       return
     }
     
+    const validFaces = ['front', 'back', 'left', 'right', 'top', 'bottom']
+    
     const handleKeyDown = (e) => {
       // Clone current position
       const newPos = [...currentPosition]
+      const setCubeSideColor = useLogoCubeStore.getState().setCubeSideColor
+      
+      // Handle face selection with numbers 1-6
+      const numberKey = parseInt(e.key)
+      if (!isNaN(numberKey) && numberKey >= 1 && numberKey <= 6) {
+        // Apply accent color to the selected face
+        const face = validFaces[numberKey - 1]
+        setCubeSideColor(newPos[0], newPos[1], newPos[2], face, 'b')
+        return
+      }
       
       switch (e.key.toLowerCase()) {
         // X-axis movement (left-right)
@@ -128,20 +147,20 @@ export default function KeyboardControl({
           break
           
         // Y-axis movement (up-down)
-        case 'w': // up
+        case 'q': // up
         case 'arrowup':
           newPos[1] = Math.min(newPos[1] + 1, gridSize - 1)
           break
-        case 's': // down
+        case 'e': // down
         case 'arrowdown':
           newPos[1] = Math.max(newPos[1] - 1, 0)
           break
           
         // Z-axis movement (forward-backward)
-        case 'e': // forward
+        case 'w': // forward
           newPos[2] = Math.min(newPos[2] + 1, gridSize - 1)
           break
-        case 'q': // backward
+        case 's': // backward
           newPos[2] = Math.max(newPos[2] - 1, 0)
           break
           

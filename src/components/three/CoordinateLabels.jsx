@@ -93,8 +93,10 @@ export function CoordinateLabels({
 export function CubeWithCoordinates({ 
   position, 
   gridPosition, 
+  sides = {},
   cubeSize = 0.8,
-  color = '#fc0398',
+  mainColor = '#fc0398',
+  accentColor = '#333333',
   textColor = '#ffffff',
   wireframe = false,
   ...props 
@@ -102,45 +104,74 @@ export function CubeWithCoordinates({
   const [x, y, z] = gridPosition
   const coordText = `${x},${y},${z}`
   
-  // Create a canvas to generate the texture
-  const canvasTexture = useMemo(() => {
-    const canvas = document.createElement('canvas')
-    canvas.width = 256
-    canvas.height = 256
-    const context = canvas.getContext('2d')
+  // Define the six faces of the cube
+  const faceConfigs = {
+    front: { normal: [0, 0, 1], up: [0, 1, 0], rotation: [0, 0, 0] },
+    back: { normal: [0, 0, -1], up: [0, 1, 0], rotation: [0, Math.PI, 0] },
+    left: { normal: [-1, 0, 0], up: [0, 1, 0], rotation: [0, -Math.PI/2, 0] },
+    right: { normal: [1, 0, 0], up: [0, 1, 0], rotation: [0, Math.PI/2, 0] },
+    top: { normal: [0, 1, 0], up: [0, 0, -1], rotation: [-Math.PI/2, 0, 0] },
+    bottom: { normal: [0, -1, 0], up: [0, 0, 1], rotation: [Math.PI/2, 0, 0] }
+  }
+  
+  // Create canvas textures for each face
+  const faceTextures = useMemo(() => {
+    const textures = {}
     
-    // Background color (same as the cube)
-    context.fillStyle = color
-    context.fillRect(0, 0, canvas.width, canvas.height)
+    Object.entries(faceConfigs).forEach(([face]) => {
+      // Determine color for this face
+      const color = sides[face] === 'b' ? accentColor : mainColor
+      
+      const canvas = document.createElement('canvas')
+      canvas.width = 256
+      canvas.height = 256
+      const context = canvas.getContext('2d')
+      
+      // Background color (same as the cube face color)
+      context.fillStyle = color
+      context.fillRect(0, 0, canvas.width, canvas.height)
+      
+      // Draw border
+      context.strokeStyle = 'rgba(255, 255, 255, 0.5)'
+      context.lineWidth = 8
+      context.strokeRect(8, 8, canvas.width - 16, canvas.height - 16)
+      
+      // Draw text
+      context.font = 'bold 48px Arial'
+      context.textAlign = 'center'
+      context.textBaseline = 'middle'
+      context.fillStyle = textColor
+      
+      // Draw coordinates
+      context.fillText(coordText, canvas.width / 2, canvas.height / 2)
+      
+      // Create texture
+      const texture = new THREE.CanvasTexture(canvas)
+      texture.needsUpdate = true
+      textures[face] = texture
+    })
     
-    // Draw border
-    context.strokeStyle = 'rgba(255, 255, 255, 0.5)'
-    context.lineWidth = 8
-    context.strokeRect(8, 8, canvas.width - 16, canvas.height - 16)
-    
-    // Draw text
-    context.font = 'bold 48px Arial'
-    context.textAlign = 'center'
-    context.textBaseline = 'middle'
-    context.fillStyle = textColor
-    
-    // Draw coordinates
-    context.fillText(coordText, canvas.width / 2, canvas.height / 2)
-    
-    // Create texture
-    const texture = new THREE.CanvasTexture(canvas)
-    texture.needsUpdate = true
-    return texture
-  }, [coordText, color, textColor])
+    return textures
+  }, [sides, mainColor, accentColor, textColor, coordText])
+  
+  // Create a material for each face
+  const faceMaterials = useMemo(() => {
+    return Object.entries(faceConfigs).map(([face]) => {
+      const color = sides[face] === 'b' ? accentColor : mainColor
+      return new THREE.MeshStandardMaterial({ 
+        map: faceTextures[face], 
+        color, 
+        wireframe 
+      })
+    })
+  }, [faceTextures, sides, mainColor, accentColor, wireframe])
   
   return (
     <mesh position={position} {...props}>
       <boxGeometry args={[cubeSize, cubeSize, cubeSize]} />
-      <meshStandardMaterial 
-        color={color} 
-        map={canvasTexture} 
-        wireframe={wireframe}
-      />
+      {faceMaterials.map((material, index) => (
+        <primitive key={index} object={material} attach={`material-${index}`} />
+      ))}
     </mesh>
   )
 }
@@ -152,7 +183,8 @@ export function TexturedLogoCube({
   size = 5,
   cubeSize = 0.8,
   gap = 0.2,
-  color = '#fc0398',
+  mainColor = '#fc0398',
+  accentColor = '#333333',
   textColor = '#000000',
   wireframe = false,
   ...props
@@ -175,6 +207,9 @@ export function TexturedLogoCube({
             continue
           }
           
+          // Get cube data (including side colors)
+          const cubeData = visibleCubes.get(key)
+          
           // Calculate world position
           const worldX = (x - offset) * (cubeSize + gap)
           const worldY = (y - offset) * (cubeSize + gap)
@@ -183,7 +218,8 @@ export function TexturedLogoCube({
           cubeList.push({
             id: key,
             position: [worldX, worldY, worldZ],
-            gridPosition: [x, y, z]
+            gridPosition: [x, y, z],
+            sides: cubeData.sides || {}
           })
         }
       }
@@ -199,8 +235,10 @@ export function TexturedLogoCube({
           key={cube.id}
           position={cube.position}
           gridPosition={cube.gridPosition}
+          sides={cube.sides}
           cubeSize={cubeSize}
-          color={color}
+          mainColor={mainColor}
+          accentColor={accentColor}
           textColor={textColor}
           wireframe={wireframe}
         />

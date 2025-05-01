@@ -51,6 +51,22 @@ export default function Experience() {
     useBetterShadows: true,
   })
   
+  // Color controls
+  useControls('Logo Colors', {
+    mainColor: {
+      value: '#fc0398',
+      onChange: (color) => {
+        useLogoCubeStore.getState().setColors({ a: color });
+      }
+    },
+    accentColor: {
+      value: '#333333',
+      onChange: (color) => {
+        useLogoCubeStore.getState().setColors({ b: color });
+      }
+    }
+  });
+  
   // Movement speed and control settings
   useControls('WASD Controls', {
     moveSpeed: {
@@ -189,12 +205,89 @@ export default function Experience() {
       }
     }
     
+    // Handle pattern loading errors more gracefully
+    const handlePatternLoadError = (error) => {
+      console.error("Error loading pattern:", error.detail?.error?.message || "Unknown error");
+      alert("There was an error loading the pattern. Please try again or try a different file.");
+    }
+    
+    // Add file input listener for Animation mode
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.json';
+    fileInput.style.display = 'none';
+    document.body.appendChild(fileInput);
+    
+    // Handle pattern loading in Animation mode
+    const handlePatternLoad = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          console.log("Animation mode: Loading pattern file:", file.name);
+          const content = event.target.result;
+          const data = JSON.parse(content);
+          console.log("Animation mode: Pattern data parsed:", data);
+          
+          // Try different loading approaches (failover strategy)
+          let success = false;
+          
+          // Try full config import first
+          if (data.pattern || data.visual) {
+            console.log("Animation mode: Attempting to load as full config");
+            success = useLogoCubeStore.getState().importFullConfig(data);
+          }
+          
+          // If that fails, try direct pattern load
+          if (!success && (data.cubes || Array.isArray(data))) {
+            console.log("Animation mode: Attempting to load as pattern only");
+            success = useLogoCubeStore.getState().loadPattern(data);
+          }
+          
+          if (success) {
+            console.log("Animation mode: Pattern loaded successfully");
+          } else {
+            throw new Error("Failed to load pattern: Unknown format");
+          }
+        } catch (error) {
+          console.error("Animation mode: Error loading pattern:", error);
+          console.error("Content:", event.target.result.substring(0, 500) + '...');
+          window.dispatchEvent(new CustomEvent('patternloaderror', { 
+            detail: { error } 
+          }));
+        }
+      };
+      reader.readAsText(file);
+      fileInput.value = null; // Reset for reuse
+    };
+    
+    fileInput.addEventListener('change', handlePatternLoad);
+    
+    // Add keyboard shortcut for loading patterns (e.g., Ctrl+L)
+    const handleKeyboardShortcuts = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
+        e.preventDefault();
+        fileInput.click(); // Trigger file selection dialog
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyboardShortcuts);
+    
+    // Add error handling for pattern loading
+    window.addEventListener('patternloaderror', handlePatternLoadError);
+    
     // Add the event listener
-    window.addEventListener('modechange', handleModeChange)
+    window.addEventListener('modechange', handleModeChange);
     
     // Clean up
     return () => {
-      window.removeEventListener('modechange', handleModeChange)
+      window.removeEventListener('modechange', handleModeChange);
+      window.removeEventListener('patternloaderror', handlePatternLoadError);
+      window.removeEventListener('keydown', handleKeyboardShortcuts);
+      fileInput.removeEventListener('change', handlePatternLoad);
+      document.body.removeChild(fileInput);
     }
   }, [])
   
