@@ -99,7 +99,7 @@ export default function App() {
           gap: '12px',
           backdropFilter: 'blur(5px)',
           width: '320px',
-          height: '110px',
+          height: '90px',
           position: 'fixed',
           top: '10px',
           right: '10px',
