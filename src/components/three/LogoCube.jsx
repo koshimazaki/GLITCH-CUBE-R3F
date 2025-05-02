@@ -4,7 +4,7 @@ import { Instance, Instances } from '@react-three/drei'
 import * as THREE from 'three'
 import { useControls } from 'leva'
 import useLogoCubeStore from '../../store/logoCubeStore'
-import { gridToWorld } from '../../utils/coordinateUtils'
+import useCoordinateStore from '../../store/coordinateStore'
 
 /**
  * GNS Logo Cube - Renders a 5x5x5 cube with specified voxels present/missing
@@ -19,7 +19,7 @@ export function LogoCube({
   animationType = 'wave',
   interactionFactor = 0.3,
   rippleInteractionFactor = 0.5,
-  useStoreConfig = false,
+  useStoreConfig = true,
   materialSettings = {
     roughness: 0.3,
     metalness: 0.5, 
@@ -47,6 +47,12 @@ export function LogoCube({
   const storeAnimationDelay = useLogoCubeStore(state => state.animation.delay)
   const storePosition = useLogoCubeStore(state => state.position)
   
+  // Get coordinate transformation function from store
+  const gridToWorldCoord = useCoordinateStore(state => state.gridToWorld)
+  
+  // Update coordinate store with current settings
+  const updateGridSettings = useCoordinateStore(state => state.updateGridSettings)
+  
   // Memoize final values to prevent unnecessary rerenders
   const finalValues = useMemo(() => ({
     size: useStoreConfig ? storeSize : size,
@@ -68,9 +74,18 @@ export function LogoCube({
     storeAnimationType, storeAnimationSpeed, storeInteractionFactor, storeAnimationDelay
   ])
   
+  // Update coordinate store when component props change
+  useEffect(() => {
+    updateGridSettings({
+      size: finalValues.size,
+      cubeSize: finalValues.cubeSize,
+      gap: finalValues.gap
+    })
+  }, [finalValues, updateGridSettings])
+  
   // Define which cubes are visible in the 5x5x5 grid
   const cubePositions = useMemo(() => {
-    const { size, cubeSize, gap } = finalValues
+    const { size } = finalValues
     const pattern = []
     
     // If using store configuration, use the visibleCubes map
@@ -79,12 +94,12 @@ export function LogoCube({
         if (cubeData.visible) {
           const [x, y, z] = key.split(',').map(Number)
           
-          // Convert from grid position to world position using utility function
-          const [worldX, worldY, worldZ] = gridToWorld(x, y, z, size, cubeSize, gap)
+          // Convert from grid position to world position using coordinate store
+          const worldPosition = gridToWorldCoord(x, y, z)
           
           pattern.push({
             id: key,
-            position: [worldX, worldY, worldZ],
+            position: worldPosition,
             gridPosition: [x, y, z],
             sides: cubeData.sides || {}
           })
@@ -101,12 +116,12 @@ export function LogoCube({
               y === 0 || y === size - 1 ||
               z === 0 || z === size - 1
             ) {
-              // Convert from grid position to world position using utility function
-              const [worldX, worldY, worldZ] = gridToWorld(x, y, z, size, cubeSize, gap)
+              // Convert from grid position to world position using coordinate store
+              const worldPosition = gridToWorldCoord(x, y, z)
               
               pattern.push({
                 id: `${x},${y},${z}`,
-                position: [worldX, worldY, worldZ],
+                position: worldPosition,
                 gridPosition: [x, y, z],
                 sides: {}
               })
@@ -117,7 +132,7 @@ export function LogoCube({
     }
     
     return pattern
-  }, [finalValues, useStoreConfig, storeVisibleCubes])
+  }, [finalValues, useStoreConfig, storeVisibleCubes, gridToWorldCoord])
   
   // Initialize the instances once
   useEffect(() => {

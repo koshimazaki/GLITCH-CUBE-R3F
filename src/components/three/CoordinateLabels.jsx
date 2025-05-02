@@ -1,8 +1,8 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Text } from '@react-three/drei'
 import * as THREE from 'three'
 import useLogoCubeStore from '../../store/logoCubeStore'
-import { gridToWorld } from '../../utils/coordinateUtils'
+import useCoordinateStore from '../../store/coordinateStore'
 
 /**
  * CoordinateLabels - Renders text labels with coordinates for each cube in the grid
@@ -193,6 +193,17 @@ export function TexturedLogoCube({
   // Get visible cubes from store
   const visibleCubes = useLogoCubeStore(state => state.visibleCubes)
   
+  // Get coordinate transformation function from store
+  const gridToWorld = useCoordinateStore(state => state.gridToWorld)
+  
+  // Update coordinate store settings
+  const updateGridSettings = useCoordinateStore(state => state.updateGridSettings)
+  
+  // Update coordinate store when props change
+  useEffect(() => {
+    updateGridSettings({ size, cubeSize, gap })
+  }, [size, cubeSize, gap, updateGridSettings])
+  
   // Generate visible cube positions
   const cubes = useMemo(() => {
     const cubeList = []
@@ -210,12 +221,12 @@ export function TexturedLogoCube({
           // Get cube data (including side colors)
           const cubeData = visibleCubes.get(key)
           
-          // Use the utility function to calculate world position
-          const [worldX, worldY, worldZ] = gridToWorld(x, y, z, size, cubeSize, gap)
+          // Calculate world position using coordinate store
+          const worldPosition = gridToWorld(x, y, z)
           
           cubeList.push({
             id: key,
-            position: [worldX, worldY, worldZ],
+            position: worldPosition,
             gridPosition: [x, y, z],
             sides: cubeData.sides || {}
           })
@@ -224,7 +235,7 @@ export function TexturedLogoCube({
     }
     
     return cubeList
-  }, [size, cubeSize, gap, visibleCubes])
+  }, [size, visibleCubes, gridToWorld])
   
   return (
     <group {...props}>
@@ -254,20 +265,21 @@ export function CubeHighlighter({
   wireframeWidth = 3,
   ...props 
 }) {
-  const size = useLogoCubeStore(state => state.size)
   const cubeSize = useLogoCubeStore(state => state.visual.cubeSize)
-  const gap = useLogoCubeStore(state => state.visual.gap)
+  
+  // Get coordinate transformation function from store
+  const gridToWorld = useCoordinateStore(state => state.gridToWorld)
   
   if (!coordinates || coordinates.length !== 3) {
     return null
   }
   
-  // Calculate world position using utility function
+  // Calculate world position using coordinate store
   const [x, y, z] = coordinates
-  const [worldX, worldY, worldZ] = gridToWorld(x, y, z, size, cubeSize, gap)
+  const worldPosition = gridToWorld(x, y, z)
   
   return (
-    <lineSegments {...props} position={[worldX, worldY, worldZ]}>
+    <lineSegments {...props} position={worldPosition}>
       <edgesGeometry args={[new THREE.BoxGeometry(cubeSize + 0.04, cubeSize + 0.04, cubeSize + 0.04)]} />
       <lineBasicMaterial color={color} linewidth={wireframeWidth} />
     </lineSegments>

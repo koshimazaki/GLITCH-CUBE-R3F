@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
 import useLogoCubeStore from '../../store/logoCubeStore'
-import { gridToWorld } from '../../utils/coordinateUtils'
+import useCoordinateStore from '../../store/coordinateStore'
 
 // Tracking to avoid duplicate material creation
 const processedCubes = new Set()
@@ -14,11 +14,11 @@ export function CubeWithTextures({ coordinates, wireframe, mainColor, accentColo
   // Get cube data from store
   const cubeData = useLogoCubeStore(state => state.visibleCubes.get(key))
   
+  // Get coordinate transformation function from store
+  const gridToWorld = useCoordinateStore(state => state.gridToWorld)
+  
   // Get sizing info from store - moved before early return to avoid conditional hooks
   const size = useLogoCubeStore(state => state.visual.cubeSize)
-  const gap = useLogoCubeStore(state => state.visual.gap)
-  // Get grid size from store (default to 5 if not available)
-  const gridSize = useLogoCubeStore(state => state.size) || 5
   
   // Create materials for each face in Three.js order:
   // 0: right (+X), 1: left (-X), 2: top (+Y), 3: bottom (-Y), 4: front (+Z), 5: back (-Z)
@@ -89,17 +89,17 @@ export function CubeWithTextures({ coordinates, wireframe, mainColor, accentColo
   // If cube isn't visible, don't render anything
   if (!cubeData || !cubeData.visible) return null
   
-  // Use the utility function to calculate world position
-  const [worldX, worldY, worldZ] = gridToWorld(x, y, z, gridSize, size, gap)
+  // Calculate world position using coordinate store
+  const worldPosition = gridToWorld(x, y, z)
   
   // Log position for debugging
   if (!processedCubes.has(`position-${key}`)) {
-    console.log(`Placing cube at grid (${x},${y},${z}) -> world (${worldX},${worldY},${worldZ})`)
+    console.log(`Placing cube at grid (${x},${y},${z}) -> world (${worldPosition[0]},${worldPosition[1]},${worldPosition[2]})`)
     processedCubes.add(`position-${key}`)
   }
   
   return (
-    <mesh position={[worldX, worldY, worldZ]}>
+    <mesh position={worldPosition}>
       <boxGeometry args={[size, size, size]} />
       {materials.map((material, index) => (
         <primitive key={`${key}-face-${index}`} object={material} attach={`material-${index}`} />

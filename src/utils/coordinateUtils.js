@@ -21,8 +21,9 @@ export function gridToWorld(x, y, z, size, cubeSize, gap) {
   const offset = (size - 1) / 2
   
   // Convert from grid position to world position
-  // IMPORTANT: We use a direct mapping without flipping any axes
-  const worldX = (x - offset) * (cubeSize + gap)
+  // Fix: For animation mode to have consistent right-front positioning, 
+  // we need to invert the x-axis orientation
+  const worldX = (offset - x) * (cubeSize + gap) // Invert X-axis orientation
   const worldY = (y - offset) * (cubeSize + gap)
   const worldZ = (z - offset) * (cubeSize + gap)
   
@@ -45,8 +46,8 @@ export function worldToGrid(worldX, worldY, worldZ, size, cubeSize, gap) {
   const offset = (size - 1) / 2
   
   // Convert from world position to grid position
-  // IMPORTANT: We use a direct mapping without flipping any axes
-  const x = Math.round(worldX / (cubeSize + gap) + offset)
+  // Matching the inverse of gridToWorld
+  const x = Math.round(offset - worldX / (cubeSize + gap)) // Invert X-axis orientation
   const y = Math.round(worldY / (cubeSize + gap) + offset)
   const z = Math.round(worldZ / (cubeSize + gap) + offset)
   

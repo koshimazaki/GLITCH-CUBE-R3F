@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { shallow } from 'zustand/shallow'
+import { loadGNSLogo, loadGNSLogoBW } from '../utils/patternLoader'
 
 /**
  * Coordinate transformation helpers
@@ -621,22 +622,24 @@ export const useLogoCubeStore = create((set, get) => ({
   // Set gap between cubes
   setGap: (gap) => set(state => ({ visual: { ...state.visual, gap } })),
   
-  initializeGNSLogo: async () => {
-    try {
-      const logoData = await import('../data/gnsLogo.json');
-      const newVisibleCubes = new Map();
-      logoData.default.forEach(coord => {
-        const key = `${coord.x},${coord.y},${coord.z}`;
-        newVisibleCubes.set(key, { visible: true, sides: {} });
-      });
-      set({ visibleCubes: newVisibleCubes });
-    } catch (error) {
-      console.error('Failed to load GNS logo data:', error);
+  initializeGNSLogo: () => {
+    const result = loadGNSLogo();
+    if (!result) {
       // Fallback to a default pattern if loading fails
       get().initializeHollowCube();
     }
+    return result;
   },
   
+  initializeGNSLogo_BW: () => {
+    const result = loadGNSLogoBW();
+    if (!result) {
+      // Fallback to a default pattern if loading fails
+      get().initializeHollowCube();
+    }
+    return result;
+  },
+
   // Clear accent colors from all sides of a cube
   clearCubeSideColors: (x, y, z) => {
     const key = `${x},${y},${z}`

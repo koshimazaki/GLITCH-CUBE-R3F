@@ -204,6 +204,8 @@ export function LogoControls() {
     const pattern = e.target.value
     if (pattern === 'gns') {
       useLogoCubeStore.getState().initializeGNSLogo()
+    } else if (pattern === 'gns_bw') {
+      useLogoCubeStore.getState().initializeGNSLogo_BW()
     } else {
       useLogoCubeStore.getState().setCurrentPattern(pattern)
     }
@@ -374,12 +376,13 @@ export function LogoControls() {
           value={currentPattern} 
           onChange={handlePatternChange}
         >
+          <option value="gns">GNS Logo</option>
+          <option value="gns_bw">GNS Logo (BW)</option>
           <option value="hollow">Hollow Cube</option>
           <option value="nested">Nested Cubes</option>
           <option value="g">G Letter</option>
           <option value="n">N Letter</option>
           <option value="s">S Letter</option>
-          <option value="gns">GNS Logo</option>
           <option value="cross">Cross</option>
           <option value="stairs">Stairs</option>
           <option value="random">Random</option>
