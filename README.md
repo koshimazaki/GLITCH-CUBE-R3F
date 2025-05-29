@@ -1,9 +1,8 @@
 # GNS Logo Cube
 
-https://github.com/user-attachments/assets/9e4c2411-d59c-4e95-a3ac-a700289c5738
-
-
 An interactive 3D logo cube with customizable patterns and animations built with React Three Fiber.
+
+https://github.com/user-attachments/assets/9e4c2411-d59c-4e95-a3ac-a700289c5738
 
 ## Features
 
